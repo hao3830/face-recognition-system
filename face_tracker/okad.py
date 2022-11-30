@@ -89,14 +89,14 @@ def create_pipeline(stereo):
     face_det_manip.out.link(face_det_nn.input)
 
     # Send face detections to the host (for bounding boxes)
-    face_det_xout = pipeline.create(dai.node.XLinkOut)
-    face_det_xout.setStreamName("detection")
-    face_det_nn.out.link(face_det_xout.input)
+    #face_det_xout = pipeline.create(dai.node.XLinkOut)
+    #face_det_xout.setStreamName("detection")
+    #face_det_nn.out.link(face_det_xout.input)
 
     # Script node will take the output from the face detection NN as an input and set ImageManipConfig
     # to the 'recognition_manip' to crop the initial frame
     image_manip_script = pipeline.create(dai.node.Script)
-    face_det_nn.out.link(image_manip_script.inputs['face_det_in'])
+    objectTracker.out.link(image_manip_script.inputs['face_det_in'])
 
     # Only send metadata, we are only interested in timestamp, so we can sync
     # depth frames with NN output
@@ -140,6 +140,13 @@ def create_pipeline(stereo):
         if bb.xmax > 1: bb.xmax = 0.999
         if bb.ymax > 1: bb.ymax = 0.999
         return bb
+    
+    def correct_bb_new(bb):
+        if bb[0] < 0: bb[0] = 0.001
+        if bb[1] < 0: bb[1] = 0.001
+        if bb[2] > 1: bb[2] = 0.999
+        if bb[3] > 1: bb[3] = 0.999
+        return bb
     while True:
         time.sleep(0.001) # Avoid lazy looping
         preview = node.io['preview'].tryGet()
@@ -155,10 +162,16 @@ def create_pipeline(stereo):
         if sync_msgs is not None:
             img = sync_msgs['preview']
             dets = sync_msgs['dets']
-            for i, det in enumerate(dets.detections):
+            for i, t in enumerate(dets.tracklets):
                 cfg = ImageManipConfig()
-                correct_bb(det)
-                cfg.setCropRect(det.xmin, det.ymin, det.xmax, det.ymax)
+                roi = t.roi
+                x1 = int(roi.topLeft().x)
+                y1 = int(roi.topLeft().y)
+                x2 = int(roi.bottomRight().x)
+                y2 = int(roi.bottomRight().y)
+                bbox = [x1,y1,x2,y2]
+                correct_bb_new(bbox)
+                cfg.setCropRect(bbox[0], bbox[1], bbox[2], bbox[3])
                 # node.warn(f"Sending {i + 1}. det. Seq {seq}. Det {det.xmin}, {det.ymin}, {det.xmax}, {det.ymax}")
                 cfg.setResize(224, 224)
                 cfg.setKeepAspectRatio(False)
