@@ -32,6 +32,8 @@ class TwoStageHostSeqSync:
             # Save color frame in the directory
             self.msgs[seq][name] = msg
             # print(f'Added frame seq {seq}')
+        elif name == "tracklets":
+            self.msgs[seq][name] = msg
 
 
     def get_msgs(self):

@@ -190,7 +190,7 @@ with dai.Device() as device:
     sync = TwoStageHostSeqSync()
     queues = {}
     # Create output queues
-    for name in ["color", "detection", "recognition"]:
+    for name in ["color", "detection", "recognition","tracklets"]:
         queues[name] = device.getOutputQueue(name)
 
     while True:
@@ -204,11 +204,16 @@ with dai.Device() as device:
             frame = msgs["color"].getCvFrame()
             detections = msgs["detection"].detections
             recognitions = msgs["recognition"]
+            tracklets = msgs["tracklets"].tracklets
 
-            for i, detection in enumerate(detections):
-                bbox = frame_norm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
+            for i,t in enumerate(tracklets):
+                roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
+                x1 = int(roi.topLeft().x)
+                y1 = int(roi.topLeft().y)
+                x2 = int(roi.bottomRight().x)
+                y2 = int(roi.bottomRight().y)
+                bbox = [x1,y1,x2,y2]
 
-                # Decoding of recognition results
                 rec = recognitions[i].getFirstLayerFp16()
                 index = np.argmax(log_softmax(rec))
                 text = "No Mask"
@@ -217,13 +222,27 @@ with dai.Device() as device:
                     text = "Mask"
                     color = (0,255,0)
 
+
+            # for i, detection in enumerate(detections):
+            #     bbox = frame_norm(frame, (detection.xmin, detection.ymin, detection.xmax, detection.ymax))
+
+            #     # Decoding of recognition results
+            #     rec = recognitions[i].getFirstLayerFp16()
+            #     index = np.argmax(log_softmax(rec))
+            #     text = "No Mask"
+            #     color = (0,0,255) # Red
+            #     if index == 1:
+            #         text = "Mask"
+            #         color = (0,255,0)
+                cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 35), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+                cv2.putText(frame, t.status.name, (x1 + 10, y1 + 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
                 cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 3)
                 y = (bbox[1] + bbox[3]) // 2
                 cv2.putText(frame, text, (bbox[0], y), cv2.FONT_HERSHEY_TRIPLEX, 1.5, (0, 0, 0), 8)
                 cv2.putText(frame, text, (bbox[0], y), cv2.FONT_HERSHEY_TRIPLEX, 1.5, (255, 255, 255), 2)
                 if stereo:
                     # You could also get detection.spatialCoordinates.x and detection.spatialCoordinates.y coordinates
-                    coords = "Z: {:.2f} m".format(detection.spatialCoordinates.z/1000)
+                    coords = "Z: {:.2f} m".format(t.spatialCoordinates.z/1000)
                     cv2.putText(frame, coords, (bbox[0], y + 60), cv2.FONT_HERSHEY_TRIPLEX, 1, (0, 0, 0), 8)
                     cv2.putText(frame, coords, (bbox[0], y + 60), cv2.FONT_HERSHEY_TRIPLEX, 1, (255, 255, 255), 2)
 
