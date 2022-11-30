@@ -89,18 +89,20 @@ def create_pipeline(stereo):
     face_det_manip.out.link(face_det_nn.input)
 
     # Send face detections to the host (for bounding boxes)
-    #face_det_xout = pipeline.create(dai.node.XLinkOut)
-    #face_det_xout.setStreamName("detection")
-    #face_det_nn.out.link(face_det_xout.input)
+    face_det_xout = pipeline.create(dai.node.XLinkOut)
+    face_det_xout.setStreamName("detection")
+    face_det_nn.out.link(face_det_xout.input)
 
     # Script node will take the output from the face detection NN as an input and set ImageManipConfig
     # to the 'recognition_manip' to crop the initial frame
     image_manip_script = pipeline.create(dai.node.Script)
-    objectTracker.out.link(image_manip_script.inputs['face_det_in'])
+    face_det_nn.out.link(image_manip_script.inputs['face_det_in'])
 
     # Only send metadata, we are only interested in timestamp, so we can sync
     # depth frames with NN output
     face_det_nn.passthrough.link(image_manip_script.inputs['passthrough'])
+    objectTracker.out.link(image_manip_script.inputs['tracker'])
+
 
     copy_manip.out.link(image_manip_script.inputs['preview'])
 
@@ -128,7 +130,7 @@ def create_pipeline(stereo):
             seq_remove.append(seq) # Will get removed from dict if we find synced msgs pair
             # node.warn(f"Checking sync {seq}")
             # Check if we have both detections and color frame with this sequence number
-            if len(syncMsgs) == 2: # 1 frame, 1 detection
+            if len(syncMsgs) == 3: # 1 frame, 1 detection, 1 tracklet
                 for rm in seq_remove:
                     del msgs[rm]
                 # node.warn(f"synced {seq}. Removed older sync values. len {len(msgs)}")
@@ -139,13 +141,6 @@ def create_pipeline(stereo):
         if bb.ymin < 0: bb.ymin = 0.001
         if bb.xmax > 1: bb.xmax = 0.999
         if bb.ymax > 1: bb.ymax = 0.999
-        return bb
-    
-    def correct_bb_new(bb):
-        if bb[0] < 0: bb[0] = 0.001
-        if bb[1] < 0: bb[1] = 0.001
-        if bb[2] > 1: bb[2] = 0.999
-        if bb[3] > 1: bb[3] = 0.999
         return bb
     while True:
         time.sleep(0.001) # Avoid lazy looping
@@ -158,20 +153,17 @@ def create_pipeline(stereo):
             passthrough = node.io['passthrough'].get()
             seq = passthrough.getSequenceNum()
             add_msg(face_dets, 'dets', seq)
+        tracklets = node.io['tracker'].tryGet()
+        if tracklets is not None:
+            add_msg(tracklets, 'tracklets')
         sync_msgs = get_msgs()
         if sync_msgs is not None:
             img = sync_msgs['preview']
             dets = sync_msgs['dets']
-            for i, t in enumerate(dets.tracklets):
+            for i, det in enumerate(dets.detections):
                 cfg = ImageManipConfig()
-                roi = t.roi
-                x1 = int(roi.topLeft().x)
-                y1 = int(roi.topLeft().y)
-                x2 = int(roi.bottomRight().x)
-                y2 = int(roi.bottomRight().y)
-                bbox = [x1,y1,x2,y2]
-                correct_bb_new(bbox)
-                cfg.setCropRect(bbox[0], bbox[1], bbox[2], bbox[3])
+                correct_bb(det)
+                cfg.setCropRect(det.xmin, det.ymin, det.xmax, det.ymax)
                 # node.warn(f"Sending {i + 1}. det. Seq {seq}. Det {det.xmin}, {det.ymin}, {det.xmax}, {det.ymax}")
                 cfg.setResize(224, 224)
                 cfg.setKeepAspectRatio(False)
