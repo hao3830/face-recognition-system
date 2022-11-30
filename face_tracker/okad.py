@@ -1,4 +1,5 @@
 from MultiMsgSync import TwoStageHostSeqSync
+from utility import FPSHandler
 import blobconverter
 import cv2
 import depthai as dai
@@ -78,7 +79,7 @@ def create_pipeline(stereo):
         stereo.depth.link(face_det_nn.inputDepth)
         copy_manip.out.link(objectTracker.inputTrackerFrame)
         objectTracker.inputTrackerFrame.setBlocking(False)
-        objectTracker.inputTrackerFrame.setQueueSize(15)
+        objectTracker.inputTrackerFrame.setQueueSize(30)
     else: # Detection network if OAK-1
         print("OAK-1 detected, app won't display spatial coordiantes")
         face_det_nn = pipeline.create(dai.node.MobileNetDetectionNetwork)
@@ -117,7 +118,7 @@ def create_pipeline(stereo):
             msgs[seq] = dict()
         msgs[seq][name] = msg
         # To avoid freezing (not necessary for this ObjDet model)
-        if 15 < len(msgs):
+        if 30 < len(msgs):
             node.warn(f"Removing first element! len {len(msgs)}")
             msgs.popitem() # Remove first element
     def get_msgs():
@@ -167,7 +168,7 @@ def create_pipeline(stereo):
 
     recognition_manip = pipeline.create(dai.node.ImageManip)
     recognition_manip.initialConfig.setResize(224, 224)
-    recognition_manip.setWaitForConfigInput(True)
+    recognition_manip.inputConfig.setWaitForMessage(True)
     image_manip_script.outputs['manip_cfg'].link(recognition_manip.inputConfig)
     image_manip_script.outputs['manip_img'].link(recognition_manip.inputImage)
 
@@ -184,6 +185,7 @@ def create_pipeline(stereo):
     return pipeline
 
 with dai.Device() as device:
+    fps = FPSHandler()
     stereo = 1 < len(device.getConnectedCameras())
     device.startPipeline(create_pipeline(stereo))
 
@@ -194,6 +196,7 @@ with dai.Device() as device:
         queues[name] = device.getOutputQueue(name)
 
     while True:
+        
         for name, q in queues.items():
             # Add all msgs (color frames, object detections and recognitions) to the Sync class.
             
@@ -204,11 +207,13 @@ with dai.Device() as device:
         msgs = sync.get_msgs()
         
         if msgs is not None and  "tracklets" in msgs:
+            fps.next_iter()
             frame = msgs["color"].getCvFrame()
-            detections = msgs["detection"].detections
+            #detections = msgs["detection"].detections
             recognitions = msgs["recognition"]
             tracklets = msgs["tracklets"].tracklets
-            print(len(tracklets),len(detections))
+            cv2.putText(frame, "NN fps: {:.2f}".format(fps.fps()), (20, 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, (0,255,0), 1)
+            #print(len(tracklets),len(detections))
             for i,t in enumerate(tracklets):
                 roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
                 x1 = int(roi.topLeft().x)
@@ -237,12 +242,13 @@ with dai.Device() as device:
             #     if index == 1:
             #         text = "Mask"
             #         color = (0,255,0)
-                cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 35), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
-                cv2.putText(frame, t.status.name, (x1 + 10, y1 + 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
+                cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 35), cv2.FONT_HERSHEY_TRIPLEX, 2, 255)
+                #cv2.putText(frame, t.status.name, (x1 + 10, y1 + 50), cv2.FONT_HERSHEY_TRIPLEX, 0.5, 255)
                 cv2.rectangle(frame, (bbox[0], bbox[1]), (bbox[2], bbox[3]), color, 3)
                 y = (bbox[1] + bbox[3]) // 2
                 cv2.putText(frame, text, (bbox[0], y), cv2.FONT_HERSHEY_TRIPLEX, 1.5, (0, 0, 0), 8)
                 cv2.putText(frame, text, (bbox[0], y), cv2.FONT_HERSHEY_TRIPLEX, 1.5, (255, 255, 255), 2)
+
                 if stereo:
                     # You could also get detection.spatialCoordinates.x and detection.spatialCoordinates.y coordinates
                     coords = "Z: {:.2f} m".format(t.spatialCoordinates.z/1000)
