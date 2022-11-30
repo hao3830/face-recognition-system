@@ -1,4 +1,4 @@
-from MultiMsgSync import TwoStageHostSeqSync
+from multisync_test import TwoStageHostSeqSync
 import blobconverter
 import cv2
 import depthai as dai

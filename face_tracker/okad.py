@@ -30,7 +30,7 @@ def create_pipeline(stereo):
     # Workaround: remove in 2.18, use `cam.setPreviewNumFramesPool(10)`
     # This manip uses 15*3.5 MB => 52 MB of RAM.
     copy_manip = pipeline.create(dai.node.ImageManip)
-    copy_manip.setNumFramesPool(15)
+    copy_manip.setNumFramesPool(30)
     copy_manip.setMaxOutputFrameSize(3499200)
     cam.preview.link(copy_manip.inputImage)
 
@@ -78,7 +78,7 @@ def create_pipeline(stereo):
         stereo.depth.link(face_det_nn.inputDepth)
         copy_manip.out.link(objectTracker.inputTrackerFrame)
         objectTracker.inputTrackerFrame.setBlocking(False)
-        objectTracker.inputTrackerFrame.setQueueSize(2)
+        objectTracker.inputTrackerFrame.setQueueSize(15)
     else: # Detection network if OAK-1
         print("OAK-1 detected, app won't display spatial coordiantes")
         face_det_nn = pipeline.create(dai.node.MobileNetDetectionNetwork)
@@ -196,16 +196,19 @@ with dai.Device() as device:
     while True:
         for name, q in queues.items():
             # Add all msgs (color frames, object detections and recognitions) to the Sync class.
+            
             if q.has():
+                #print(name)
                 sync.add_msg(q.get(), name)
 
         msgs = sync.get_msgs()
-        if msgs is not None:
+        
+        if msgs is not None and  "tracklets" in msgs:
             frame = msgs["color"].getCvFrame()
             detections = msgs["detection"].detections
             recognitions = msgs["recognition"]
             tracklets = msgs["tracklets"].tracklets
-
+            print(len(tracklets),len(detections))
             for i,t in enumerate(tracklets):
                 roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
                 x1 = int(roi.topLeft().x)

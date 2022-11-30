@@ -32,9 +32,6 @@ class TwoStageHostSeqSync:
             # Save color frame in the directory
             self.msgs[seq][name] = msg
             # print(f'Added frame seq {seq}')
-        elif name == "tracklets":
-            self.msgs[seq][name] = msg
-            self.msgs[seq]["tracklets_len"] = len(msg.tracklets)
 
 
     def get_msgs(self):
@@ -44,10 +41,10 @@ class TwoStageHostSeqSync:
             seq_remove.append(seq) # Will get removed from dict if we find synced msgs pair
 
             # Check if we have both detections and color frame with this sequence number
-            if "color" in msgs and "len" in msgs and "tracklets_len" in msgs:
+            if "color" in msgs and "len" in msgs:
 
                 # Check if all detected objects (faces) have finished recognition inference
-                if msgs["len"] == len(msgs["recognition"]) and msgs["len"] == msgs["tracklets_len"]:
+                if msgs["len"] == len(msgs["recognition"]):
                     # print(f"Synced msgs with sequence number {seq}", msgs)
 
                     # We have synced msgs, remove previous msgs (memory cleaning)
