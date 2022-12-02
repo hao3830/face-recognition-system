@@ -14,15 +14,15 @@ class TwoStageHostSeqSync:
         seq = str(msg.getSequenceNum())
         if seq not in self.msgs:
             self.msgs[seq] = {} # Create directory for msgs
-        if "recognition" not in self.msgs[seq]:
-            self.msgs[seq]["recognition"] = [] # Create recognition array
+#        if "recognition" not in self.msgs[seq]:
+#            self.msgs[seq]["recognition"] = [] # Create recognition array
 
-        if name == "recognition":
-            # Append recognition msgs to an array
-            self.msgs[seq]["recognition"].append(msg)
+#        if name == "recognition":
+#            # Append recognition msgs to an array
+#            self.msgs[seq]["recognition"].append(msg)
             # print(f'Added recognition seq {seq}, total len {len(self.msgs[seq]["recognition"])}')
 
-        elif name == "detection":
+        if name == "detection":
             # Save detection msg in the directory
             self.msgs[seq][name] = msg
             self.msgs[seq]["len"] = len(msg.detections)
@@ -32,6 +32,10 @@ class TwoStageHostSeqSync:
             # Save color frame in the directory
             self.msgs[seq][name] = msg
             # print(f'Added frame seq {seq}')
+        elif name == "tracklets":
+            self.msgs[seq][name] = msg
+            self.msgs[seq]["len_track"] = len(msg.tracklets)
+        
 
 
     def get_msgs(self):
@@ -41,10 +45,10 @@ class TwoStageHostSeqSync:
             seq_remove.append(seq) # Will get removed from dict if we find synced msgs pair
 
             # Check if we have both detections and color frame with this sequence number
-            if "color" in msgs and "len" in msgs:
+            if "color" in msgs and "len" in msgs and "len_track" in msgs:
 
                 # Check if all detected objects (faces) have finished recognition inference
-                if msgs["len"] == len(msgs["recognition"]):
+                if msgs["len"] == msgs["len_track"]:
                     # print(f"Synced msgs with sequence number {seq}", msgs)
 
                     # We have synced msgs, remove previous msgs (memory cleaning)
