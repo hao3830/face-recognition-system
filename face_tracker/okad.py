@@ -5,7 +5,7 @@ import numpy as np
 import time
 import argparse
 import blobconverter
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Manager
 import requests
 import time
 
@@ -15,17 +15,23 @@ statusMap = {dai.Tracklet.TrackingStatus.NEW : "NEW", dai.Tracklet.TrackingStatu
 
 
 Q = Queue()
-def send_reg_api(Q):
+data = Manager().dict({})
+def send_reg_api(Q, data):
     while True:
         if Q.empty() :
             continue
-        FRAME, BBOX = Q.get()
+        FRAME, BBOX, idx = Q.get()
         cropped = FRAME[BBOX[1]:BBOX[3],BBOX[0]:BBOX[2]]
         cropped_bytes = cv2.imencode(".jpg",cropped)[1].tobytes()
         res = requests.post(url=REG_API,files=dict(avatar=cropped_bytes))
-
         
-p = Process(target=send_reg_api,args=(Q,))
+        res = res.json()
+        if "bad" in res:
+            data[str(idx)]["bad"] = True
+        else:
+            data[str(idx)]["bad"] = False
+        
+p = Process(target=send_reg_api,args=(Q,data,))
 p.start()
 # Start defining a pipeline
 pipeline = dai.Pipeline()
@@ -93,7 +99,7 @@ with dai.Device(pipeline) as device:
     fps = 0
     frame = None
     prev_status = None
-    data = {}
+
 
     while(True):
         imgFrame = preview.get()
@@ -117,8 +123,8 @@ with dai.Device(pipeline) as device:
             x2 = int(roi.bottomRight().x)
             y2 = int(roi.bottomRight().y)
             bbox = [x1,y1,x2,y2]
-            if str(t.id) in data and  'lostCnt' not in data[str(t.id)] and t.status == dai.Tracklet.TrackingStatus.TRACKED:
-                Q.put((new_frame,bbox))
+            if str(t.id) in data and  ('lostCnt' not in data[str(t.id)] or data[idx]["bad"] ) and t.status == dai.Tracklet.TrackingStatus.TRACKED:
+                Q.put((new_frame,bbox,str(t.id)))
             #cv2.putText(frame, str(label), (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color)
             cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 35), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color)
             if statusMap[t.status] != "LOST" and statusMap[t.status] != "REMOVED":
@@ -131,9 +137,12 @@ with dai.Device(pipeline) as device:
             #Tracking save
             if t.status == dai.Tracklet.TrackingStatus.NEW:
                 data[str(t.id)] = {} # Reset
+                data[idx]["bad"] = False
             elif t.status == dai.Tracklet.TrackingStatus.TRACKED:
                 data[str(t.id)]['lostCnt'] = 0
             elif t.status == dai.Tracklet.TrackingStatus.LOST:
+                if 'lostCnt' not in data[str(t.id)]:
+                    data[str(t.id)]['lostCnt'] = 0
                 data[str(t.id)]['lostCnt'] += 1
                 # If tracklet has been "LOST" for more than 10 frames, remove it
                 if 10 < data[str(t.id)]['lostCnt'] and "lost" not in data[str(t.id)]:
