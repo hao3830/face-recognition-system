@@ -15,7 +15,7 @@ statusMap = {dai.Tracklet.TrackingStatus.NEW : "NEW", dai.Tracklet.TrackingStatu
 
 
 Q = Queue()
-data = Manager().dict({})
+data = Manager().dict()
 def send_reg_api(Q, data):
     while True:
         if Q.empty() :
@@ -27,10 +27,17 @@ def send_reg_api(Q, data):
         
         res = res.json()
         if "bad" in res:
-            data[str(idx)]["bad"] = True
+            curr = data[str(idx)]
+            curr["bad"] = True
+            data[str(idx)] = {
+                **curr
+            }
         else:
-            data[str(idx)]["bad"] = False
-        
+            curr = data[str(idx)]
+            curr["bad"] = False
+            data[str(idx)] = {
+                **curr
+            }       
 p = Process(target=send_reg_api,args=(Q,data,))
 p.start()
 # Start defining a pipeline
@@ -123,7 +130,7 @@ with dai.Device(pipeline) as device:
             x2 = int(roi.bottomRight().x)
             y2 = int(roi.bottomRight().y)
             bbox = [x1,y1,x2,y2]
-            if str(t.id) in data and  ('lostCnt' not in data[str(t.id)] or data[idx]["bad"] ) and t.status == dai.Tracklet.TrackingStatus.TRACKED:
+            if str(t.id) in data and  ('lostCnt' not in data[str(t.id)] or data[str(t.id)]["bad"] ) and t.status == dai.Tracklet.TrackingStatus.TRACKED:
                 Q.put((new_frame,bbox,str(t.id)))
             #cv2.putText(frame, str(label), (x1 + 10, y1 + 20), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color)
             cv2.putText(frame, f"ID: {[t.id]}", (x1 + 10, y1 + 35), cv2.FONT_HERSHEY_TRIPLEX, 0.5, color)
@@ -136,19 +143,29 @@ with dai.Device(pipeline) as device:
             
             #Tracking save
             if t.status == dai.Tracklet.TrackingStatus.NEW:
-                data[str(t.id)] = {} # Reset
-                data[idx]["bad"] = False
+                data[str(t.id)] = {"bad": False} # Reset
             elif t.status == dai.Tracklet.TrackingStatus.TRACKED:
-                data[str(t.id)]['lostCnt'] = 0
+#                data[str(t.id)]['lostCnt'] = 0
+                data[str(t.id)] = {
+                    **data[str(t.id)],
+                    'lostCnt': 0
+                    }
             elif t.status == dai.Tracklet.TrackingStatus.LOST:
-                if 'lostCnt' not in data[str(t.id)]:
-                    data[str(t.id)]['lostCnt'] = 0
-                data[str(t.id)]['lostCnt'] += 1
+                curr = data[str(t.id)]
+                curr['lostCnt'] += 1
+                data[str(t.id)] = {
+                    **curr
+                }
                 # If tracklet has been "LOST" for more than 10 frames, remove it
                 if 10 < data[str(t.id)]['lostCnt'] and "lost" not in data[str(t.id)]:
                     #node.warn(f"Tracklet {t.id} lost: {data[str(t.id)]['lostCnt']}")
-                    del data[str(t.id)]
-                    data[str(t.id)]["lost"] = True
+#                    del data[str(t.id)]
+                    curr = data[str(t.id)]
+                    curr["lost"] = True
+                    data[str(t.id)] = {
+                    **curr
+                    
+                    }
             elif (t.status == dai.Tracklet.TrackingStatus.REMOVED) and "lost" not in data[str(t.id)]:
                 del data[str(t.id)]
             
