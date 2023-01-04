@@ -6,14 +6,14 @@ import numpy as np
 import time
 import argparse
 import blobconverter
-from multiprocessing import Process, Queue, Manager
+from multiprocessing import Process, Queue, Manager, Value
 import requests
 import time
 import base64
 from fastapi import FastAPI,WebSocket, WebSocketDisconnect
 import rlogger
 
-SKIP_TRACK_TIME = 2
+SKIP_TRACK_TIME = 5
 TIME_TRACK = 5
 
 def get_token():
@@ -68,9 +68,12 @@ def good_bad_face(cropped_image):
 list_id = []
 class JESTION:
     def __init__(self):
-        self.frame = None
-        self.frame_default = None
+        self.frame = Queue()
+        self.frame_default = Queue()
+        self.drawed_frame_buffer_queue = None
+        self.default_frame_buffer_queue = None
         self.TOKEN = get_token()
+        self.manager = Manager().dict()
    
     
     def run(self):
@@ -84,6 +87,10 @@ class JESTION:
 
         p = Process(target=self.send_reg_api,args=(Q,data))
         p.start()
+        
+        p = Process(target=self.convert_frame,args=())
+        p.start()
+        
         # Start defining a pipeline
         pipeline = dai.Pipeline()
 
@@ -153,11 +160,13 @@ class JESTION:
 
 
             while(True):
-                try:
-                    imgFrame = preview.get()
-                    track = tracklets.get()
-                except:
-                    continue
+#                try:
+#                    imgFrame = preview.get()
+#                    track = tracklets.get()
+#                except:
+#                    logger.error("Fail to get data")
+                imgFrame = preview.get()
+                track = tracklets.get()
 
                 counter+=1
                 current_time = time.monotonic()
@@ -171,7 +180,6 @@ class JESTION:
                 #frame = cv2.resize(frame,(500,500))
                 new_frame = frame.copy()
 #                default_image_buffer = cv2.imencode(".jpg", frame)[1].tobytes()
-                self.frame_default = new_frame
                 
                    
                 trackletsData = track.tracklets
@@ -231,13 +239,33 @@ class JESTION:
 
 #                image_buffer = cv2.imencode(".jpg", frame)[1].tobytes()
 ##                self.frame = base64.b64encode(image_buffer).decode('utf-8')
-                self.frame=frame
-                
+#                self.frame.put(frame)
+#                self.frame_default.put(new_frame)
+                self.manager['frame'] = frame
+                self.manager['frame_default'] = new_frame
+    
+    def convert_frame(self):
+        print("GO")
+        while True:
+            if 'frame' not in self.manager or 'frame_default' not in self.manager:
+                continue
+            frame = self.manager['frame']
+            frame_default = self.manager['frame_default']
+            if frame is None or frame_default is None:
+                continue
+
+#            self.drawed_frame_buffer_queue = cv2.imencode(".jpg", frame)[1].tobytes()
+#            self.default_frame_buffer_queue = cv2.imencode(".jpg",frame_default)[1].tobytes()
+            self.manager['drawed_frame_buffer'] = cv2.imencode(".jpg", frame)[1].tobytes()
+            self.manager['default_frame_buffer'] = cv2.imencode(".jpg",frame_default)[1].tobytes()
+           
     def get(self):
-        return self.frame
+        return self.manager['drawed_frame_buffer']
+#        return self.drawed_frame_buffer_queue
     
     def get_default(self):
-        return self.frame_default
+        return self.manager['default_frame_buffer']
+#        return self.default_frame_buffer_queue
     
     def send_reg_api(self,Q, data):
         while True:
@@ -279,7 +307,7 @@ class JESTION:
             except:
                 logger.error("Fail connect to insert face api")
             
-#            del data[str(idx)]
+        
                  
 
 video_controller = JESTION()
@@ -294,11 +322,12 @@ def gen_frame(is_default):
      while True:
         if is_default:
             frame = video_controller.get_default()
+
         else:
-            frame=video_controller.get()
+            frame=video_controller.get() 
         if frame is not None:
-            image_buffer = cv2.imencode(".jpg", frame)[1].tobytes()
-            yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + image_buffer + b"\r\n")
+#            image_buffer = cv2.imencode(".jpg", frame)[1].tobytes()
+            yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
      
 from fastapi.responses import StreamingResponse
 @app.get("/streaming")
