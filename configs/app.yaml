@@ -1,0 +1,22 @@
+middleware:
+  origins:
+    - "https://aiclub.uit.edu.vn"
+    - "http://aiclub.uit.edu.vn"
+    - "http://localhost"
+    - "http://localhost:3000"
+    - "http://127.0.0.1"
+    - "http://127.0.0.1:3000"
+    - "http://192.168.28.23"
+  allow_credentials: true
+  allow_methods:
+    - "GET"
+    - "POST"
+    - "PUT"
+    - "DELETE"
+  allow_headers:
+    - "Authorization"
+  gzip_min_size: 1024
+
+log:
+  dir: "logfile"
+
