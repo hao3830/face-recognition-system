@@ -23,7 +23,7 @@ def get_pipeline():
     colorCam.setInterleaved(False)
     colorCam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
     # colorCam.setBoardSocket(dai.CameraBoardSocket.RGB)
-    colorCam.setFps(25)
+    colorCam.setFps(30)
 
     # setting node configs
     detectionNetwork.setBlobPath(
