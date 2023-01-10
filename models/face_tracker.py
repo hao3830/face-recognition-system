@@ -6,7 +6,6 @@ import time
 import depthai as dai
 
 from multiprocessing import Process, Queue, Manager
-from threading import Thread
 from logging import getLogger
 
 logger = getLogger("app")
@@ -41,8 +40,8 @@ class FaceTracker:
         p = Process(target=self.send_reg_api, args=(Q, data))
         p.start()
 
-        thread = Thread(target=self.convert_frame, args=())
-        thread.start()
+        p = Process(target=self.convert_frame, args=())
+        p.start()
 
         pipeline = models.get_pipeline()
 
