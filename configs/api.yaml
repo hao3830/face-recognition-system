@@ -1,6 +1,6 @@
 checkin:
- - url: "https://aiclub.uit.edu.vn/robot/checkin/api"
- - username: "admin"
- - password: "admin123"
+ url: "https://aiclub.uit.edu.vn/robot/checkin/api"
+ username: "admin"
+ password: "admin123"
 
 good_bad_face_url: "https://aiclub.uit.edu.vn/gpu/service/goodbadfaceclassifier/predict_binary"
