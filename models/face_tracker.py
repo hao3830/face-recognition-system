@@ -58,7 +58,7 @@ class FaceTracker:
             counter = 0
             fps = 0
             frame = None
-
+            time.sleep(3000)
             while True:
                 imgFrame = preview.tryGet()
                 track = tracklets.tryGet()
