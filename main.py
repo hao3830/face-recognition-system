@@ -1,6 +1,7 @@
 import utils
 import routers
 
+import os
 import logging
 import uvicorn
 
@@ -10,6 +11,9 @@ from fastapi.middleware.cors import CORSMiddleware
 config = utils.get_config()
 
 log_formatter = logging.Formatter("%(asctime)s %(levelname)s" " %(funcName)s(%(lineno)d) %(message)s")
+
+#Create logfile folder
+os.makedirs(config.log.dir,exist_ok=True)
 log_handler = utils.BiggerRotatingFileHandler(
     "ali",
     config.log.dir,
