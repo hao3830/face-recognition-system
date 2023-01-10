@@ -1,9 +1,9 @@
 import models
 import utils
 
-from logging import getLogger
+from threading import Thread
 from fastapi import APIRouter
-from multiprocessing import Process
+from logging import getLogger
 from fastapi.responses import StreamingResponse
 
 router = APIRouter()
@@ -12,9 +12,8 @@ logger = getLogger("app")
 # Init controler
 face_tracker_controler = models.FaceTracker()
 
-p = Process(target=face_tracker_controler.run)
-p.start()
-
+thread = Thread(target=face_tracker_controler.run)
+thread.start()
 logger.info("Init FaceTracker Successfull")
 
 @router.get("/streaming")
