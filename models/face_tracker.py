@@ -29,8 +29,24 @@ class FaceTracker:
         self.frame_default = Queue()
         self.drawed_frame_buffer_queue = None
         self.default_frame_buffer_queue = None
-        self.TOKEN = utils.get_token()
         self.manager = Manager().dict()
+
+        self.TOKEN = utils.get_token()
+
+        # Size face settings
+        size_face_w = settings.size_face_w
+        size_face_h = settings.size_face_h
+        self.size_face_manager = Manager().dict()
+        self.size_face_manager["w"] = size_face_w
+        self.size_face_manager["h"] = size_face_h
+
+        # ROI settings
+        self.roi_manager = Manager().dict()
+        roi = settings.roi
+        self.roi_manager["x"] = roi.x
+        self.roi_manager["y"] = roi.y
+        self.roi_manager["w"] = roi.w
+        self.roi_manager["h"] = roi.h
 
     def run(self):
 
@@ -59,8 +75,8 @@ class FaceTracker:
             fps = 0
             frame = None
             while True:
-                imgFrame = preview.get()
-                track = tracklets.get()
+                imgFrame = preview.tryGet()
+                track = tracklets.tryGet()
                 if imgFrame is None or track is None:
                     continue
 
@@ -75,8 +91,29 @@ class FaceTracker:
                 frame = imgFrame.getCvFrame()
                 # frame = cv2.resize(frame,(500,500))
                 new_frame = frame.copy()
+                overlay = frame.copy()
 
                 trackletsData = track.tracklets
+
+                limit_roi = [
+                    self.roi_manager["x"],
+                    self.roi_manager["y"],
+                    self.roi_manager["x"] + self.roi_manager["w"],
+                    self.roi_manager["y"] + self.roi_manager["h"],
+                ]
+
+                cv2.rectangle(
+                    overlay,
+                    (limit_roi[0], limit_roi[1]),
+                    (limit_roi[2], limit_roi[3]),
+                    (0, 200, 0),
+                    -1,
+                )
+
+                alpha = 0.4  # Transparency factor.
+
+                frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+
                 for t in trackletsData:
                     roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
                     x1 = int(roi.topLeft().x)
@@ -84,12 +121,16 @@ class FaceTracker:
                     x2 = int(roi.bottomRight().x)
                     y2 = int(roi.bottomRight().y)
                     bbox = [x1, y1, x2, y2]
+
+                    isContain = utils.ImageProcess.isContain(bbox, limit_roi)
+
                     if (
                         str(t.id) in data
                         and data[str(t.id)]["bad"] == False
                         and t.status == dai.Tracklet.TrackingStatus.TRACKED
                         and data[str(t.id)]["sent"] < MAX_TIME_CHECK
                         and counter % CHECK_FREQ == 0
+                        and isContain
                     ):
 
                         Q.put((new_frame, bbox, str(t.id)))
@@ -154,7 +195,6 @@ class FaceTracker:
                 self.manager["frame_default"] = new_frame
 
     def convert_frame(self):
-        print("GO")
         while True:
             if "frame" not in self.manager or "frame_default" not in self.manager:
                 continue
@@ -181,6 +221,13 @@ class FaceTracker:
             if Q.empty():
                 continue
             FRAME, BBOX, idx = Q.get()
+
+            # Check face size
+            if (
+                BBOX[2] - BBOX[0] < self.size_face_manager["w"]
+                or BBOX[3] - BBOX[1] < self.size_face_manager["h"]
+            ):
+                continue
 
             if str(idx) not in data:
                 continue
@@ -232,3 +279,19 @@ class FaceTracker:
                     )
                     if res is None:
                         continue
+
+    def get_roi(self):
+        return self.roi_manager
+
+    def get_size_face(self):
+        return self.size_face_manager
+
+    def set_roi(self, x, y, w, h):
+        self.roi_manager["x"] = x
+        self.roi_manager["y"] = y
+        self.roi_manager["w"] = w
+        self.roi_manager["h"] = h
+
+    def set_size_face(self, w, h):
+        self.size_face_manager["w"] = w
+        self.size_face_manager["h"] = h

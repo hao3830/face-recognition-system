@@ -1,2 +1,10 @@
 check_freq: 5
 max_time_check: 5
+size_face_w: 70
+size_face_h: 100
+roi:
+  x: 0
+  y: 0
+  w: 720
+  h: 720
+
