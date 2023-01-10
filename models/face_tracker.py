@@ -62,6 +62,8 @@ class FaceTracker:
             while True:
                 imgFrame = preview.tryGet()
                 track = tracklets.tryGet()
+                if imgFrame is None or track is None:
+                    continue
 
                 counter += 1
                 current_time = time.monotonic()
