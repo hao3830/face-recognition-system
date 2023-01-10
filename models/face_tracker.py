@@ -51,8 +51,8 @@ class FaceTracker:
             # Start the pipeline
             device.startPipeline()
 
-            preview = device.getOutputQueue("preview")
-            tracklets = device.getOutputQueue("tracklets")
+            preview = device.getOutputQueue("preview", maxSize=30, blocking=False)
+            tracklets = device.getOutputQueue("tracklets", maxSize=30, blocking=False)
 
             startTime = time.monotonic()
             counter = 0
@@ -60,8 +60,8 @@ class FaceTracker:
             frame = None
 
             while True:
-                imgFrame = preview.get()
-                track = tracklets.get()
+                imgFrame = preview.tryGet()
+                track = tracklets.tryGet()
 
                 counter += 1
                 current_time = time.monotonic()
