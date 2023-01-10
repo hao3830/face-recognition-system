@@ -23,11 +23,11 @@ def get_pipeline():
     colorCam.setInterleaved(False)
     colorCam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
     # colorCam.setBoardSocket(dai.CameraBoardSocket.RGB)
-    colorCam.setFps(40)
+    colorCam.setFps(25)
 
     # setting node configs
     detectionNetwork.setBlobPath(
-        blobconverter.from_zoo(name="face-detection-retail-0005", shaves=6)
+        blobconverter.from_zoo(name="face-detection-retail-0004", shaves=6)
     )
     detectionNetwork.setConfidenceThreshold(0.5)
     detectionNetwork.input.setBlocking(False)
@@ -50,10 +50,7 @@ def get_pipeline():
         dai.TrackerIdAssignmentPolicy.SMALLEST_ID
     )
 
-    # if fullFrameTracking:
     colorCam.preview.link(objectTracker.inputTrackerFrame)
-    # else:
-    #    detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
 
     detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
     detectionNetwork.out.link(objectTracker.inputDetections)
