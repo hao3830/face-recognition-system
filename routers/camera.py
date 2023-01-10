@@ -3,8 +3,8 @@ import utils
 
 from threading import Thread
 from fastapi import APIRouter
-from fastapi.responses import StreamingResponse
 from logging import getLogger
+from fastapi.responses import StreamingResponse
 
 router = APIRouter()
 logger = getLogger("app")

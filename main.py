@@ -5,12 +5,7 @@ import logging
 import uvicorn
 
 from fastapi import FastAPI
-from threading import Thread
 from fastapi.middleware.cors import CORSMiddleware
-
-
-SKIP_TRACK_TIME = 5
-TIME_TRACK = 5
 
 config = utils.get_config()
 

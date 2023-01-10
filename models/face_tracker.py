@@ -1,15 +1,26 @@
 import utils
+import models
 
 import cv2
 import time
-import requests
-import blobconverter
 import depthai as dai
 
-from multiprocessing import Process, Queue, Manager, Value
+from multiprocessing import Process, Queue, Manager
 from logging import getLogger
 
 logger = getLogger("app")
+
+settings = utils.get_settings_config()
+
+MAX_TIME_CHECK = settings.max_time_check
+CHECK_FREQ = settings.check_freq
+
+STATUS_MAP = {
+    dai.Tracklet.TrackingStatus.NEW: "NEW",
+    dai.Tracklet.TrackingStatus.TRACKED: "TRACKED",
+    dai.Tracklet.TrackingStatus.LOST: "LOST",
+    dai.Tracklet.TrackingStatus.REMOVED: "REMOVED",
+}
 
 
 class FaceTracker:
@@ -23,13 +34,6 @@ class FaceTracker:
 
     def run(self):
 
-        statusMap = {
-            dai.Tracklet.TrackingStatus.NEW: "NEW",
-            dai.Tracklet.TrackingStatus.TRACKED: "TRACKED",
-            dai.Tracklet.TrackingStatus.LOST: "LOST",
-            dai.Tracklet.TrackingStatus.REMOVED: "REMOVED",
-        }
-
         Q = Queue()
         data = Manager().dict()
 
@@ -39,59 +43,7 @@ class FaceTracker:
         p = Process(target=self.convert_frame, args=())
         p.start()
 
-        # Start defining a pipeline
-        pipeline = dai.Pipeline()
-
-        colorCam = pipeline.createColorCamera()
-        detectionNetwork = pipeline.createMobileNetDetectionNetwork()
-        objectTracker = pipeline.createObjectTracker()
-        trackerOut = pipeline.createXLinkOut()
-
-        xlinkOut = pipeline.createXLinkOut()
-
-        xlinkOut.setStreamName("preview")
-        trackerOut.setStreamName("tracklets")
-
-        colorCam.setPreviewSize(720, 720)
-        colorCam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
-        colorCam.setInterleaved(False)
-        colorCam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-        # colorCam.setBoardSocket(dai.CameraBoardSocket.RGB)
-        colorCam.setFps(40)
-
-        # setting node configs
-        detectionNetwork.setBlobPath(
-            blobconverter.from_zoo(name="face-detection-retail-0005", shaves=6)
-        )
-        detectionNetwork.setConfidenceThreshold(0.5)
-        detectionNetwork.input.setBlocking(False)
-
-        face_det_manip = pipeline.create(dai.node.ImageManip)
-        face_det_manip.initialConfig.setResize(300, 300)
-        face_det_manip.initialConfig.setFrameType(dai.RawImgFrame.Type.RGB888p)
-        colorCam.preview.link(face_det_manip.inputImage)
-        face_det_manip.out.link(detectionNetwork.input)
-
-        # Link plugins CAM . NN . XLINK
-        # colorCam.preview.link(detectionNetwork.input)
-        objectTracker.passthroughTrackerFrame.link(xlinkOut.input)
-
-        # objectTracker.setDetectionLabelsToTrack([15])  # track only person
-        # possible tracking types: ZERO_TERM_COLOR_HISTOGRAM, ZERO_TERM_IMAGELESS
-        objectTracker.setTrackerType(dai.TrackerType.ZERO_TERM_COLOR_HISTOGRAM)
-        # take the smallest ID when new object is tracked, possible options: SMALLEST_ID, UNIQUE_ID
-        objectTracker.setTrackerIdAssignmentPolicy(
-            dai.TrackerIdAssignmentPolicy.SMALLEST_ID
-        )
-
-        # if fullFrameTracking:
-        colorCam.preview.link(objectTracker.inputTrackerFrame)
-        # else:
-        #    detectionNetwork.passthrough.link(objectTracker.inputTrackerFrame)
-
-        detectionNetwork.passthrough.link(objectTracker.inputDetectionFrame)
-        detectionNetwork.out.link(objectTracker.inputDetections)
-        objectTracker.out.link(trackerOut.input)
+        pipeline = models.get_pipeline()
 
         # Pipeline defined, now the device is connected to
         with dai.Device(pipeline) as device:
@@ -106,7 +58,6 @@ class FaceTracker:
             counter = 0
             fps = 0
             frame = None
-            prev_status = None
 
             while True:
                 imgFrame = preview.get()
@@ -136,14 +87,14 @@ class FaceTracker:
                         str(t.id) in data
                         and data[str(t.id)]["bad"] == False
                         and t.status == dai.Tracklet.TrackingStatus.TRACKED
-                        and data[str(t.id)]["sent"] < TIME_TRACK
-                        and counter % SKIP_TRACK_TIME == 0
+                        and data[str(t.id)]["sent"] < MAX_TIME_CHECK
+                        and counter % CHECK_FREQ == 0
                     ):
 
                         Q.put((new_frame, bbox, str(t.id)))
                     if (
-                        statusMap[t.status] != "LOST"
-                        and statusMap[t.status] != "REMOVED"
+                        STATUS_MAP[t.status] != "LOST"
+                        and STATUS_MAP[t.status] != "REMOVED"
                     ):
                         cv2.putText(
                             frame,
@@ -155,7 +106,7 @@ class FaceTracker:
                         )
                         cv2.putText(
                             frame,
-                            statusMap[t.status],
+                            STATUS_MAP[t.status],
                             (x1 + 10, y1 + 50),
                             cv2.FONT_HERSHEY_TRIPLEX,
                             0.5,
@@ -232,39 +183,51 @@ class FaceTracker:
 
             if str(idx) not in data:
                 continue
-            if data[str(idx)]["sent"] >= TIME_TRACK or data[str(idx)]["bad"] == True:
+            if (
+                data[str(idx)]["sent"] >= MAX_TIME_CHECK
+                or data[str(idx)]["bad"] == True
+            ):
                 continue
             cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
             status = utils.good_bad_face(cropped_bytes)
 
-            try:
-                curr = data[str(idx)]
-                if status == "bad" and curr["sent"] < TIME_TRACK:
+            curr = data[str(idx)]
+            if status == "bad" and curr["sent"] < MAX_TIME_CHECK:
+                continue
+            logger.info("Sent Face Image")
+            headers = {"Authorization": f"Bearer {self.TOKEN}"}
+
+            res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
+            if res is None:
+                self.TOKEN = utils.get_token()
+                res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
+                if res is None:
                     continue
-                logger.info("Sent Face Image")
-                headers = {"Authorization": f"Bearer {self.TOKEN}"}
+            res = res.json()
 
-                res = requests.post(
-                    url=REG_API_CHECK, files=dict(file=cropped_bytes), headers=headers
-                )
-                res = res.json()
-
-                if res["code"] == 1000:
-                    curr["bad"] = True
-                    res = requests.post(
-                        url=INSERT_API, files=dict(file=cropped_bytes), headers=headers
+            if res["code"] == 1000:
+                curr["bad"] = True
+                res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+                if res is None:
+                    self.TOKEN = utils.get_token()
+                    res = utils.insert_face(
+                        cropped_bytes=cropped_bytes, headers=headers
                     )
+                    if res is None:
+                        continue
 
-                curr["sent"] += 1
-                data[str(idx)] = {**curr}
-                if (
-                    data[str(idx)]["sent"] == TIME_TRACK
-                    and data[str(idx)]["bad"] == False
-                ):
-                    res = requests.post(
-                        url=INSERT_API, files=dict(file=cropped_bytes), headers=headers
+            curr["sent"] += 1
+            data[str(idx)] = {**curr}
+            if (
+                data[str(idx)]["sent"] == MAX_TIME_CHECK
+                and data[str(idx)]["bad"] == False
+            ):
+                res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+                if res is None:
+                    self.TOKEN = utils.get_token()
+                    res = utils.insert_face(
+                        cropped_bytes=cropped_bytes, headers=headers
                     )
-
-            except:
-                logger.error("Fail connect to insert face api")
+                    if res is None:
+                        continue
