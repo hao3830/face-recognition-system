@@ -21,6 +21,7 @@ def get_pipeline():
     colorCam.setPreviewSize(720, 720)
     colorCam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
     colorCam.setInterleaved(False)
+    colorCam.setFp16(True)
     colorCam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
     # colorCam.setBoardSocket(dai.CameraBoardSocket.RGB)
     colorCam.setFps(30)
