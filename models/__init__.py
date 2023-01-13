@@ -11,6 +11,8 @@ def auto_restart():
         try:
             face_tracker_controler.run()
         except Exception as err:
+            if face_tracker_controler.device is not None:
+                face_tracker_controler.device.close()
             print(f"err: {err}")
     
 thread = Thread(target=auto_restart)
