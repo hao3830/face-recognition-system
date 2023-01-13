@@ -8,8 +8,10 @@ face_tracker_controler = FaceTracker()
 
 def auto_restart():
     while 1:
-        process = Process(target=face_tracker_controler.run)
-        process.start()
+        try:
+            face_tracker_controler.run()
+        except:
+            print("Error")
     
 thread = Thread(target=auto_restart)
 thread.start()
