@@ -48,6 +48,8 @@ class FaceTracker:
         self.roi_manager["y"] = roi.y
         self.roi_manager["w"] = roi.w
         self.roi_manager["h"] = roi.h
+        
+        self.device = None
 
     def run(self):
 
@@ -63,137 +65,137 @@ class FaceTracker:
         pipeline = models.get_pipeline()
 
         # Pipeline defined, now the device is connected to
-        with dai.Device(pipeline) as device:
+        self.device = dai.Device(pipeline, usb2Mode=True)
 
-            # Start the pipeline
-            device.startPipeline()
+        # Start the pipeline
+        self.device.startPipeline()
 
-            preview = device.getOutputQueue("preview", maxSize=4, blocking=False)
-            tracklets = device.getOutputQueue("tracklets", maxSize=4, blocking=False)
+        preview = self.device.getOutputQueue("preview", maxSize=4, blocking=False)
+        tracklets = self.device.getOutputQueue("tracklets", maxSize=4, blocking=False)
 
-            startTime = time.monotonic()
-            counter = 0
-            fps = 0
-            frame = None
-            while True:
-                imgFrame = preview.tryGet()
-                track = tracklets.tryGet()
-                if imgFrame is None or track is None:
-                    continue
+        startTime = time.monotonic()
+        counter = 0
+        fps = 0
+        frame = None
+        while True:
+            imgFrame = preview.tryGet()
+            track = tracklets.tryGet()
+            if imgFrame is None or track is None:
+                continue
 
-                counter += 1
-                current_time = time.monotonic()
-                if (current_time - startTime) > 1:
-                    fps = counter / (current_time - startTime)
-                    counter = 0
-                    startTime = current_time
+            counter += 1
+            current_time = time.monotonic()
+            if (current_time - startTime) > 1:
+                fps = counter / (current_time - startTime)
+                counter = 0
+                startTime = current_time
 
-                color = (0, 255, 0)
-                frame = imgFrame.getCvFrame()
-                # frame = cv2.resize(frame,(500,500))
-                new_frame = frame.copy()
-                overlay = frame.copy()
+            color = (0, 255, 0)
+            frame = imgFrame.getCvFrame()
+            # frame = cv2.resize(frame,(500,500))
+            new_frame = frame.copy()
+            overlay = frame.copy()
 
-                trackletsData = track.tracklets
+            trackletsData = track.tracklets
 
-                limit_roi = [
-                    self.roi_manager["x"],
-                    self.roi_manager["y"],
-                    self.roi_manager["x"] + self.roi_manager["w"],
-                    self.roi_manager["y"] + self.roi_manager["h"],
-                ]
+            limit_roi = [
+                self.roi_manager["x"],
+                self.roi_manager["y"],
+                self.roi_manager["x"] + self.roi_manager["w"],
+                self.roi_manager["y"] + self.roi_manager["h"],
+            ]
 
-                cv2.rectangle(
-                    overlay,
-                    (limit_roi[0], limit_roi[1]),
-                    (limit_roi[2], limit_roi[3]),
-                    (0, 200, 0),
-                    -1,
-                )
+            cv2.rectangle(
+                overlay,
+                (limit_roi[0], limit_roi[1]),
+                (limit_roi[2], limit_roi[3]),
+                (0, 200, 0),
+                -1,
+            )
 
-                alpha = 0.4  # Transparency factor.
+            alpha = 0.4  # Transparency factor.
 
-                frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+            frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
-                for t in trackletsData:
-                    roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
-                    x1 = int(roi.topLeft().x)
-                    y1 = int(roi.topLeft().y)
-                    x2 = int(roi.bottomRight().x)
-                    y2 = int(roi.bottomRight().y)
-                    bbox = [x1, y1, x2, y2]
+            for t in trackletsData:
+                roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
+                x1 = int(roi.topLeft().x)
+                y1 = int(roi.topLeft().y)
+                x2 = int(roi.bottomRight().x)
+                y2 = int(roi.bottomRight().y)
+                bbox = [x1, y1, x2, y2]
 
-                    isContain = utils.ImageProcess.isContain(bbox, limit_roi)
+                isContain = utils.ImageProcess.isContain(bbox, limit_roi)
 
+                if (
+                    str(t.id) in data
+                    and data[str(t.id)]["bad"] == False
+                    and t.status == dai.Tracklet.TrackingStatus.TRACKED
+                    and data[str(t.id)]["sent"] < MAX_TIME_CHECK
+                    and counter % CHECK_FREQ == 0
+                    and isContain
+                ):
+
+                    Q.put((new_frame, bbox, str(t.id)))
+                if (
+                    STATUS_MAP[t.status] != "LOST"
+                    and STATUS_MAP[t.status] != "REMOVED"
+                ):
+                    cv2.putText(
+                        frame,
+                        f"ID:{t.id}",
+                        (x1 + 10, y1 + 35),
+                        cv2.FONT_HERSHEY_TRIPLEX,
+                        0.5,
+                        color,
+                    )
+                    cv2.putText(
+                        frame,
+                        STATUS_MAP[t.status],
+                        (x1 + 10, y1 + 50),
+                        cv2.FONT_HERSHEY_TRIPLEX,
+                        0.5,
+                        color,
+                    )
+
+                    cv2.rectangle(
+                        frame, (x1, y1), (x2, y2), color, cv2.FONT_HERSHEY_SIMPLEX
+                    )
+
+                # Tracking save
+                if t.status == dai.Tracklet.TrackingStatus.NEW:
+                    data[str(t.id)] = {"bad": False, "sent": 0}  # Reset
+                elif t.status == dai.Tracklet.TrackingStatus.TRACKED:
+                    #                data[str(t.id)]['lostCnt'] = 0
+                    data[str(t.id)] = {**data[str(t.id)], "lostCnt": 0}
+                elif t.status == dai.Tracklet.TrackingStatus.LOST:
+                    curr = data[str(t.id)]
+                    curr["lostCnt"] += 1
+                    data[str(t.id)] = {**curr}
+                    # If tracklet has been "LOST" for more than 10 frames, remove it
                     if (
-                        str(t.id) in data
-                        and data[str(t.id)]["bad"] == False
-                        and t.status == dai.Tracklet.TrackingStatus.TRACKED
-                        and data[str(t.id)]["sent"] < MAX_TIME_CHECK
-                        and counter % CHECK_FREQ == 0
-                        and isContain
+                        10 < data[str(t.id)]["lostCnt"]
+                        and "lost" not in data[str(t.id)]
                     ):
-
-                        Q.put((new_frame, bbox, str(t.id)))
-                    if (
-                        STATUS_MAP[t.status] != "LOST"
-                        and STATUS_MAP[t.status] != "REMOVED"
-                    ):
-                        cv2.putText(
-                            frame,
-                            f"ID:{t.id}",
-                            (x1 + 10, y1 + 35),
-                            cv2.FONT_HERSHEY_TRIPLEX,
-                            0.5,
-                            color,
-                        )
-                        cv2.putText(
-                            frame,
-                            STATUS_MAP[t.status],
-                            (x1 + 10, y1 + 50),
-                            cv2.FONT_HERSHEY_TRIPLEX,
-                            0.5,
-                            color,
-                        )
-
-                        cv2.rectangle(
-                            frame, (x1, y1), (x2, y2), color, cv2.FONT_HERSHEY_SIMPLEX
-                        )
-
-                    # Tracking save
-                    if t.status == dai.Tracklet.TrackingStatus.NEW:
-                        data[str(t.id)] = {"bad": False, "sent": 0}  # Reset
-                    elif t.status == dai.Tracklet.TrackingStatus.TRACKED:
-                        #                data[str(t.id)]['lostCnt'] = 0
-                        data[str(t.id)] = {**data[str(t.id)], "lostCnt": 0}
-                    elif t.status == dai.Tracklet.TrackingStatus.LOST:
                         curr = data[str(t.id)]
-                        curr["lostCnt"] += 1
+                        curr["lost"] = True
                         data[str(t.id)] = {**curr}
-                        # If tracklet has been "LOST" for more than 10 frames, remove it
-                        if (
-                            10 < data[str(t.id)]["lostCnt"]
-                            and "lost" not in data[str(t.id)]
-                        ):
-                            curr = data[str(t.id)]
-                            curr["lost"] = True
-                            data[str(t.id)] = {**curr}
-                    elif (
-                        t.status == dai.Tracklet.TrackingStatus.REMOVED
-                    ) and "lost" not in data[str(t.id)]:
-                        data.pop(str(t.id))
+                elif (
+                    t.status == dai.Tracklet.TrackingStatus.REMOVED
+                ) and "lost" not in data[str(t.id)]:
+                    data.pop(str(t.id))
 
-                cv2.putText(
-                    frame,
-                    "FPS: {:.2f}".format(fps),
-                    (2, 10),
-                    cv2.FONT_HERSHEY_TRIPLEX,
-                    0.5,
-                    color,
-                )
+            cv2.putText(
+                frame,
+                "FPS: {:.2f}".format(fps),
+                (2, 10),
+                cv2.FONT_HERSHEY_TRIPLEX,
+                0.5,
+                color,
+            )
 
-                self.manager["frame"] = frame
-                self.manager["frame_default"] = new_frame
+            self.manager["frame"] = frame
+            self.manager["frame_default"] = new_frame
 
     def convert_frame(self):
         while True:
