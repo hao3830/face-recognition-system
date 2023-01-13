@@ -32,6 +32,9 @@ class FaceTracker:
         self.default_frame_buffer_queue = None
         self.manager = Manager().dict()
 
+        self.manager["drawed_frame_buffer"] = None
+        self.manager["default_frame_buffer"] = None
+
         self.TOKEN = utils.get_token()
 
         # Size face settings
@@ -70,16 +73,16 @@ class FaceTracker:
         # Start the pipeline
         self.device.startPipeline()
 
-        preview = self.device.getOutputQueue("preview", maxSize=4, blocking=False)
-        tracklets = self.device.getOutputQueue("tracklets", maxSize=4, blocking=False)
+        preview = self.device.getOutputQueue("preview", maxSize=30, blocking=False)
+        tracklets = self.device.getOutputQueue("tracklets", maxSize=30, blocking=False)
 
         startTime = time.monotonic()
         counter = 0
         fps = 0
         frame = None
         while True:
-            imgFrame = preview.tryGet()
-            track = tracklets.tryGet()
+            imgFrame = preview.get()
+            track = tracklets.get()
             if imgFrame is None or track is None:
                 continue
 
@@ -90,11 +93,11 @@ class FaceTracker:
                 counter = 0
                 startTime = current_time
 
-            color = (0, 255, 0)
+            color = (255, 0, 0)
             frame = imgFrame.getCvFrame()
             # frame = cv2.resize(frame,(500,500))
             new_frame = frame.copy()
-            overlay = frame.copy()
+            # overlay = frame.copy()
 
             trackletsData = track.tracklets
 
@@ -105,17 +108,17 @@ class FaceTracker:
                 self.roi_manager["y"] + self.roi_manager["h"],
             ]
 
-            cv2.rectangle(
-                overlay,
-                (limit_roi[0], limit_roi[1]),
-                (limit_roi[2], limit_roi[3]),
-                (0, 200, 0),
-                -1,
-            )
+            # cv2.rectangle(
+            #     overlay,
+            #     (limit_roi[0], limit_roi[1]),
+            #     (limit_roi[2], limit_roi[3]),
+            #     (0, 200, 0),
+            #     -1,
+            # )
 
-            alpha = 0.4  # Transparency factor.
+            # alpha = 0.4  
 
-            frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+            # frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
             for t in trackletsData:
                 roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
