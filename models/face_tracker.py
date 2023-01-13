@@ -5,7 +5,8 @@ import cv2
 import time
 import depthai as dai
 
-from multiprocessing import Process, Queue, Manager
+from multiprocessing import Queue, Manager
+from threading import Thread
 from logging import getLogger
 
 logger = getLogger("app")
@@ -53,10 +54,10 @@ class FaceTracker:
         Q = Queue()
         data = Manager().dict()
 
-        p = Process(target=self.send_reg_api, args=(Q, data))
+        p = Thread(target=self.send_reg_api, args=(Q, data))
         p.start()
 
-        p = Process(target=self.convert_frame, args=())
+        p = Thread(target=self.convert_frame, args=())
         p.start()
 
         pipeline = models.get_pipeline()
@@ -67,8 +68,8 @@ class FaceTracker:
             # Start the pipeline
             device.startPipeline()
 
-            preview = device.getOutputQueue("preview", maxSize=30, blocking=False)
-            tracklets = device.getOutputQueue("tracklets", maxSize=30, blocking=False)
+            preview = device.getOutputQueue("preview", maxSize=4, blocking=False)
+            tracklets = device.getOutputQueue("tracklets", maxSize=4, blocking=False)
 
             startTime = time.monotonic()
             counter = 0
