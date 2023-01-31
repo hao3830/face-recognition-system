@@ -62,7 +62,7 @@ class FaceTracker:
 
     def run(self):
         try:
-            Q = Queue()
+            Q = Queue(maxsize=30)
             data = Manager().dict()
 
             p1 = Thread(target=self.send_reg_api, args=(Q, data))
@@ -156,7 +156,6 @@ class FaceTracker:
                     and isContain
                 ):
                     Q.put((new_frame, bbox, str(t.id)))
-                print(Q.qsize())
                 check_frequent_counter += 1
                 if (
                     STATUS_MAP[t.status] != "LOST"
