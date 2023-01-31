@@ -150,7 +150,7 @@ class FaceTracker:
                     str(t.id) in data
                     and data[str(t.id)]["face_quality_valid"] == False
                     and t.status == dai.Tracklet.TrackingStatus.TRACKED
-                    and data[str(t.id)]["sent"] < self.manager["max_time_check"]
+                    # and data[str(t.id)]["sent"] < self.manager["max_time_check"]
                     and counter % self.manager["check_freq"] == 0
                     and isContain
                 ):

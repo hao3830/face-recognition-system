@@ -1,4 +1,4 @@
-check_freq: 1
+check_freq: 10
 det_conf: 0.5
 max_time_check: 1
 roi:
