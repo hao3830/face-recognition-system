@@ -4,7 +4,7 @@ import blobconverter
 import depthai as dai
 
 
-def get_pipeline():
+def get_pipeline(conf = 0.5):
     # Start defining a pipeline
     pipeline = dai.Pipeline()
 
@@ -22,14 +22,14 @@ def get_pipeline():
     colorCam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
     colorCam.setInterleaved(False)
     colorCam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
-    # colorCam.setBoardSocket(dai.CameraBoardSocket.RGB)
+    colorCam.setBoardSocket(dai.CameraBoardSocket.RGB)
     colorCam.setFps(30)
 
     # setting node configs
     detectionNetwork.setBlobPath(
         blobconverter.from_zoo(name="face-detection-retail-0004", shaves=6)
     )
-    detectionNetwork.setConfidenceThreshold(0.5)
+    detectionNetwork.setConfidenceThreshold(conf)
     detectionNetwork.input.setBlocking(False)
 
     face_det_manip = pipeline.create(dai.node.ImageManip)

@@ -1,9 +1,9 @@
 import utils
+import models
 import routers
 
 import os
 import logging
-import uvicorn
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -52,8 +52,5 @@ app.include_router(routers.settings)
 def healthy_check():
     return "OK"
 
-# if __name__ == '__main__':
-# uvicorn.run(app,port=8000,host='0.0.0.0')
-# 
 
 

@@ -1,3 +1,4 @@
+import asyncio
 def gen_frame(video_controller,is_default):
      """Video streaming generator function."""
      while True:
@@ -9,3 +10,10 @@ def gen_frame(video_controller,is_default):
         if frame is not None:
 #            image_buffer = cv2.imencode(".jpg", frame)[1].tobytes()
             yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
+
+async def streamer(gen):
+    try:
+        for i in gen:
+            yield i
+    except asyncio.CancelledError:
+        print("caught cancelled error")

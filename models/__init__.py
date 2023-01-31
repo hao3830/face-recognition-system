@@ -1,4 +1,5 @@
-from multiprocessing import Process
+import time
+
 from threading import Thread
 
 from models.face_tracker import FaceTracker
@@ -11,9 +12,10 @@ def auto_restart():
         try:
             face_tracker_controler.run()
         except Exception as err:
-            if face_tracker_controler.device is not None:
-                face_tracker_controler.device.close()
             print(f"err: {err}")
-    
+        if face_tracker_controler.device is not None:
+            face_tracker_controler.device.close()
+        
+        time.sleep(0.5)
 thread = Thread(target=auto_restart)
 thread.start()

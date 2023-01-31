@@ -13,8 +13,7 @@ logger = getLogger("app")
 
 settings = utils.get_settings_config()
 
-MAX_TIME_CHECK = settings.max_time_check
-CHECK_FREQ = settings.check_freq
+
 
 STATUS_MAP = {
     dai.Tracklet.TrackingStatus.NEW: "NEW",
@@ -34,6 +33,12 @@ class FaceTracker:
 
         self.manager["drawed_frame_buffer"] = None
         self.manager["default_frame_buffer"] = None
+        self.manager["is_restart"] = False
+        self.manager["det_conf"] = settings.det_conf
+        self.manager["image_size"] = None
+
+        self.manager["max_time_check"] = settings.max_time_check
+        self.manager["check_freq"] = settings.check_freq
 
         self.TOKEN = utils.get_token()
 
@@ -54,21 +59,28 @@ class FaceTracker:
         
         self.device = None
 
+
     def run(self):
+        try:
+            Q = Queue()
+            data = Manager().dict()
 
-        Q = Queue()
-        data = Manager().dict()
+            p1 = Thread(target=self.send_reg_api, args=(Q, data))
+            p1.start()
 
-        p = Thread(target=self.send_reg_api, args=(Q, data))
-        p.start()
+            p2 = Thread(target=self.convert_frame, args=(data,))
+            p2.start()
 
-        p = Thread(target=self.convert_frame, args=())
-        p.start()
+            pipeline = models.get_pipeline(self.manager["det_conf"])
 
-        pipeline = models.get_pipeline()
-
-        # Pipeline defined, now the device is connected to
-        self.device = dai.Device(pipeline, usb2Mode=True)
+            # Pipeline defined, now the device is connected to
+            self.device = dai.Device(pipeline, usb2Mode=True)
+        except Exception as error:
+            data['is_kill'] = True
+            p1.join()
+            p2.join()
+            raise(error)
+        
 
         # Start the pipeline
         self.device.startPipeline()
@@ -81,6 +93,9 @@ class FaceTracker:
         fps = 0
         frame = None
         while True:
+
+            self.manager["is_restart"] = False
+
             imgFrame = preview.get()
             track = tracklets.get()
             if imgFrame is None or track is None:
@@ -96,8 +111,9 @@ class FaceTracker:
             color = (255, 0, 0)
             frame = imgFrame.getCvFrame()
             # frame = cv2.resize(frame,(500,500))
+            self.manager["image_size"] = frame.shape
             new_frame = frame.copy()
-            # overlay = frame.copy()
+            overlay = frame.copy()
 
             trackletsData = track.tracklets
 
@@ -108,17 +124,17 @@ class FaceTracker:
                 self.roi_manager["y"] + self.roi_manager["h"],
             ]
 
-            # cv2.rectangle(
-            #     overlay,
-            #     (limit_roi[0], limit_roi[1]),
-            #     (limit_roi[2], limit_roi[3]),
-            #     (0, 200, 0),
-            #     -1,
-            # )
+            cv2.rectangle(
+                overlay,
+                (limit_roi[0], limit_roi[1]),
+                (limit_roi[2], limit_roi[3]),
+                (0, 200, 0),
+                -1,
+            )
 
-            # alpha = 0.4  
+            alpha = 0.4  
 
-            # frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+            frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
             for t in trackletsData:
                 roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
@@ -134,11 +150,10 @@ class FaceTracker:
                     str(t.id) in data
                     and data[str(t.id)]["bad"] == False
                     and t.status == dai.Tracklet.TrackingStatus.TRACKED
-                    and data[str(t.id)]["sent"] < MAX_TIME_CHECK
-                    and counter % CHECK_FREQ == 0
+                    and data[str(t.id)]["sent"] < self.manager["max_time_check"]
+                    and counter % self.manager["check_freq"] == 0
                     and isContain
                 ):
-
                     Q.put((new_frame, bbox, str(t.id)))
                 if (
                     STATUS_MAP[t.status] != "LOST"
@@ -200,8 +215,15 @@ class FaceTracker:
             self.manager["frame"] = frame
             self.manager["frame_default"] = new_frame
 
-    def convert_frame(self):
+            if self.manager["is_restart"]:
+                return
+
+    def convert_frame(self, data):
         while True:
+            
+            if 'is_kill' in data:
+                return
+
             if "frame" not in self.manager or "frame_default" not in self.manager:
                 continue
             frame = self.manager["frame"]
@@ -224,6 +246,9 @@ class FaceTracker:
 
     def send_reg_api(self, Q, data):
         while True:
+            if 'is_kill' in data:
+                return
+
             if Q.empty():
                 continue
             FRAME, BBOX, idx = Q.get()
@@ -238,7 +263,7 @@ class FaceTracker:
             if str(idx) not in data:
                 continue
             if (
-                data[str(idx)]["sent"] >= MAX_TIME_CHECK
+                data[str(idx)]["sent"] >= self.manager["max_time_check"]
                 or data[str(idx)]["bad"] == True
             ):
                 continue
@@ -246,8 +271,10 @@ class FaceTracker:
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
             status = utils.good_bad_face(cropped_bytes)
 
+            if str(idx) not in data:
+                continue
             curr = data[str(idx)]
-            if status == "bad" and curr["sent"] < MAX_TIME_CHECK:
+            if status == "bad" and curr["sent"] < self.manager["max_time_check"]:
                 continue
             logger.info("Sent Face Image")
             headers = {"Authorization": f"Bearer {self.TOKEN}"}
@@ -270,11 +297,12 @@ class FaceTracker:
                     )
                     if res is None:
                         continue
-
+            if str(idx) not in data:
+                continue
             curr["sent"] += 1
             data[str(idx)] = {**curr}
             if (
-                data[str(idx)]["sent"] == MAX_TIME_CHECK
+                data[str(idx)]["sent"] == self.manager["max_time_check"]
                 and data[str(idx)]["bad"] == False
             ):
                 res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
@@ -301,3 +329,30 @@ class FaceTracker:
     def set_size_face(self, w, h):
         self.size_face_manager["w"] = w
         self.size_face_manager["h"] = h
+    
+    def get_det_settings(self):
+        data = {
+            'conf': self.manager["det_conf"],
+            'max_time_check': self.manager["max_time_check"],
+            'check_freq': self.manager["check_freq"]
+        }
+        return data
+    
+    def set_det_settings(self, data):
+        self.manager["det_conf"] = data["conf"]
+        self.manager["max_time_check"] = data["max_time_check"]
+        self.manager["check_freq"] = data["check_freq"]
+
+    def set_check_restart(self):
+        self.manager["is_restart"] = True
+    
+    def get_image_size(self):
+
+        if self.manager["image_size"] is not None:
+            height, width, _ = self.manager["image_size"]
+            return {
+                "height": height,
+                "width": width,
+            }
+
+        return None
