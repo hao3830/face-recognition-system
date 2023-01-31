@@ -29,7 +29,6 @@ def get_token():
 
 
 def good_bad_face(cropped_image):
-    print("sent api good bad face")
     try:
         res = requests.post(
             url=config.good_bad_face_url, files=dict(binary_file=cropped_image)

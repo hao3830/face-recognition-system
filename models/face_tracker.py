@@ -182,7 +182,7 @@ class FaceTracker:
 
                 # Tracking save
                 if t.status == dai.Tracklet.TrackingStatus.NEW:
-                    data[str(t.id)] = {"bad": False, "sent": 0}  # Reset
+                    data[str(t.id)] = {"face_quality_valid": False, "sent": 0}  # Reset
                 elif t.status == dai.Tracklet.TrackingStatus.TRACKED:
                     #                data[str(t.id)]['lostCnt'] = 0
                     data[str(t.id)] = {**data[str(t.id)], "lostCnt": 0}
@@ -246,7 +246,7 @@ class FaceTracker:
 
     def send_reg_api(self, Q, data):
 
-        idx = 0
+        counter = 0
 
         while True:
             if 'is_kill' in data:
@@ -336,10 +336,10 @@ class FaceTracker:
             #             continue
             
             # REFRESH TOKEN
-            if idx % 1000 == 0:
+            if counter % 1000 == 0:
                 self.TOKEN = utils.get_token()
 
-            idx += 1
+            counter += 1
 
     def get_roi(self):
         return self.roi_manager
