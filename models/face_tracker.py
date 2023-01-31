@@ -156,7 +156,7 @@ class FaceTracker:
                     and isContain
                 ):
                     Q.put((new_frame, bbox, str(t.id)))
-                
+                print(Q.qsize())
                 check_frequent_counter += 1
                 if (
                     STATUS_MAP[t.status] != "LOST"
