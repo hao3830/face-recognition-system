@@ -148,7 +148,7 @@ class FaceTracker:
 
                 if (
                     str(t.id) in data
-                    and data[str(t.id)]["bad"] == False
+                    and data[str(t.id)]["face_quality_valid"] == False
                     and t.status == dai.Tracklet.TrackingStatus.TRACKED
                     and data[str(t.id)]["sent"] < self.manager["max_time_check"]
                     and counter % self.manager["check_freq"] == 0
@@ -245,6 +245,9 @@ class FaceTracker:
         return self.manager["default_frame_buffer"]
 
     def send_reg_api(self, Q, data):
+
+        idx = 0
+
         while True:
             if 'is_kill' in data:
                 return
@@ -259,14 +262,18 @@ class FaceTracker:
                 or BBOX[3] - BBOX[1] < self.size_face_manager["h"]
             ):
                 continue
-
+                
             if str(idx) not in data:
                 continue
+            
+            # IS FACE IMAGE HAS SENT => RESET
             if (
                 data[str(idx)]["sent"] >= self.manager["max_time_check"]
-                or data[str(idx)]["bad"] == True
+                or data[str(idx)]["face_quality_valid"] == True
             ):
-                continue
+                data[str(idx)]["sent"] = 0
+                data[str(idx)]["face_quality_valid"] = False
+
             cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
             status = utils.good_bad_face(cropped_bytes)
@@ -279,40 +286,60 @@ class FaceTracker:
             logger.info("Sent Face Image")
             headers = {"Authorization": f"Bearer {self.TOKEN}"}
 
-            res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
-            if res is None:
-                self.TOKEN = utils.get_token()
-                res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
-                if res is None:
-                    continue
-            res = res.json()
+            if status != "bad":
+                curr["face_quality_valid"] = True
 
-            if res["code"] == 1000:
-                curr["bad"] = True
+            #CHECK IS FACE VALID BEFORE POST TO THE SERVER
+
+            # res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
+            # if res is None:
+            #     self.TOKEN = utils.get_token()
+            #     res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
+            #     if res is None:
+            #         continue
+            # res = res.json()
+
+            # if res["code"] == 1000:
+            #     curr["face_quality_valid"] = True
+            #     res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+            #     if res is None:
+            #         self.TOKEN = utils.get_token()
+            #         res = utils.insert_face(
+            #             cropped_bytes=cropped_bytes, headers=headers
+            #         )
+            #         if res is None:
+            #             continue
+                data[str(idx)] = {**curr}
                 res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
                 if res is None:
-                    self.TOKEN = utils.get_token()
                     res = utils.insert_face(
                         cropped_bytes=cropped_bytes, headers=headers
                     )
                     if res is None:
                         continue
-            if str(idx) not in data:
-                continue
-            curr["sent"] += 1
-            data[str(idx)] = {**curr}
-            if (
-                data[str(idx)]["sent"] == self.manager["max_time_check"]
-                and data[str(idx)]["bad"] == False
-            ):
-                res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-                if res is None:
-                    self.TOKEN = utils.get_token()
-                    res = utils.insert_face(
-                        cropped_bytes=cropped_bytes, headers=headers
-                    )
-                    if res is None:
-                        continue
+            
+
+            # if str(idx) not in data:
+            #     continue
+            # curr["sent"] += 1
+            # data[str(idx)] = {**curr}
+            # if (
+            #     data[str(idx)]["sent"] == self.manager["max_time_check"]
+            #     and data[str(idx)]["face_quality_valid"] == False
+            # ):
+            #     res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+            #     if res is None:
+            #         res = utils.insert_face(
+            #             cropped_bytes=cropped_bytes, headers=headers
+            #         )
+            #         if res is None:
+            #             continue
+            
+            # REFRESH TOKEN
+            if idx % 1000 == 0:
+                self.TOKEN = utils.get_token()
+
+            idx += 1
 
     def get_roi(self):
         return self.roi_manager
