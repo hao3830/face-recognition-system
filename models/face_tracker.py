@@ -248,7 +248,7 @@ class FaceTracker:
 
     def send_reg_api(self, Q, data):
 
-        counter = 0
+        send_api_counter = 0
 
         while True:
             if 'is_kill' in data:
@@ -298,10 +298,10 @@ class FaceTracker:
                     if res is None:
                         continue
             
-            if counter % 1000 == 0:
+            if send_api_counter % 1000 == 0:
                 self.TOKEN = utils.get_token()
 
-            counter += 1
+            send_api_counter += 1
             #CHECK IS FACE VALID BEFORE POST TO THE SERVER
 
             # res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
