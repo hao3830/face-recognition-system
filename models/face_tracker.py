@@ -90,6 +90,7 @@ class FaceTracker:
 
         startTime = time.monotonic()
         counter = 0
+        check_frequent_counter = 0
         fps = 0
         frame = None
         while True:
@@ -151,10 +152,12 @@ class FaceTracker:
                     and data[str(t.id)]["face_quality_valid"] == False
                     and t.status == dai.Tracklet.TrackingStatus.TRACKED
                     # and data[str(t.id)]["sent"] < self.manager["max_time_check"]
-                    and counter % self.manager["check_freq"] == 0
+                    and check_frequent_counter % self.manager["check_freq"] == 0
                     and isContain
                 ):
                     Q.put((new_frame, bbox, str(t.id)))
+                
+                check_frequent_counter += 1
                 if (
                     STATUS_MAP[t.status] != "LOST"
                     and STATUS_MAP[t.status] != "REMOVED"
@@ -271,8 +274,7 @@ class FaceTracker:
                 data[str(idx)]["sent"] >= self.manager["max_time_check"]
                 or data[str(idx)]["face_quality_valid"] == True
             ):
-                data[str(idx)]["sent"] = 0
-                data[str(idx)]["face_quality_valid"] = False
+                continue
 
             cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
@@ -288,7 +290,19 @@ class FaceTracker:
 
             if status != "bad":
                 curr["face_quality_valid"] = True
+                data[str(idx)] = {**curr}
+                res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+                if res is None:
+                    res = utils.insert_face(
+                        cropped_bytes=cropped_bytes, headers=headers
+                    )
+                    if res is None:
+                        continue
+            
+            if counter % 1000 == 0:
+                self.TOKEN = utils.get_token()
 
+            counter += 1
             #CHECK IS FACE VALID BEFORE POST TO THE SERVER
 
             # res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
@@ -309,14 +323,7 @@ class FaceTracker:
             #         )
             #         if res is None:
             #             continue
-                data[str(idx)] = {**curr}
-                res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-                if res is None:
-                    res = utils.insert_face(
-                        cropped_bytes=cropped_bytes, headers=headers
-                    )
-                    if res is None:
-                        continue
+                
             
 
             # if str(idx) not in data:
@@ -336,10 +343,7 @@ class FaceTracker:
             #             continue
             
             # REFRESH TOKEN
-            if counter % 1000 == 0:
-                self.TOKEN = utils.get_token()
-
-            counter += 1
+            
 
     def get_roi(self):
         return self.roi_manager
