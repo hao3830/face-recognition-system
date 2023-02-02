@@ -1,0 +1,3 @@
+confident: 0.4
+backbone_path: './weights/backbone.onnx'
+quality_path: './weights/quality.onnx'

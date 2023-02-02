@@ -45,3 +45,6 @@ def get_settings_config_without_parse_yaml():
 
 def set_settings_config(data):
     return _set_config("configs/settings.yaml",data)
+
+def get_face_quality_config():
+    return _get_config("configs/face_quality.yaml")

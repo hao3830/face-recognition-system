@@ -14,7 +14,6 @@ logger = getLogger("app")
 settings = utils.get_settings_config()
 
 
-
 STATUS_MAP = {
     dai.Tracklet.TrackingStatus.NEW: "NEW",
     dai.Tracklet.TrackingStatus.TRACKED: "TRACKED",
@@ -56,9 +55,8 @@ class FaceTracker:
         self.roi_manager["y"] = roi.y
         self.roi_manager["w"] = roi.w
         self.roi_manager["h"] = roi.h
-        
-        self.device = None
 
+        self.device = None
 
     def run(self):
         try:
@@ -76,11 +74,10 @@ class FaceTracker:
             # Pipeline defined, now the device is connected to
             self.device = dai.Device(pipeline, usb2Mode=True)
         except Exception as error:
-            data['is_kill'] = True
+            data["is_kill"] = True
             p1.join()
             p2.join()
-            raise(error)
-        
+            raise (error)
 
         # Start the pipeline
         self.device.startPipeline()
@@ -133,7 +130,7 @@ class FaceTracker:
                 -1,
             )
 
-            alpha = 0.4  
+            alpha = 0.4
 
             frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
 
@@ -153,14 +150,11 @@ class FaceTracker:
                     and t.status == dai.Tracklet.TrackingStatus.TRACKED
                     # and data[str(t.id)]["sent"] < self.manager["max_time_check"]
                     and check_frequent_counter % self.manager["check_freq"] == 0
-                    and isContain
+                    and isContain == True
                 ):
                     Q.put((new_frame, bbox, str(t.id)))
                 check_frequent_counter += 1
-                if (
-                    STATUS_MAP[t.status] != "LOST"
-                    and STATUS_MAP[t.status] != "REMOVED"
-                ):
+                if STATUS_MAP[t.status] != "LOST" and STATUS_MAP[t.status] != "REMOVED":
                     cv2.putText(
                         frame,
                         f"ID:{t.id}",
@@ -222,8 +216,8 @@ class FaceTracker:
 
     def convert_frame(self, data):
         while True:
-            
-            if 'is_kill' in data:
+
+            if "is_kill" in data:
                 return
 
             if "frame" not in self.manager or "frame_default" not in self.manager:
@@ -251,7 +245,7 @@ class FaceTracker:
         send_api_counter = 0
 
         while True:
-            if 'is_kill' in data:
+            if "is_kill" in data:
                 return
 
             if Q.empty():
@@ -264,20 +258,19 @@ class FaceTracker:
                 or BBOX[3] - BBOX[1] < self.size_face_manager["h"]
             ):
                 continue
-                
-            if str(idx) not in data:
-                continue
-            
+
             # IS FACE IMAGE HAS SENT => RESET
             if (
-                data[str(idx)]["sent"] >= self.manager["max_time_check"]
+                str(idx) not in data
+                or data[str(idx)]["sent"] >= self.manager["max_time_check"]
                 or data[str(idx)]["face_quality_valid"] == True
             ):
                 continue
 
             cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
-            status = utils.good_bad_face(cropped_bytes)
+            # status = utils.good_bad_face(cropped_bytes)
+            status = models.face_quality.predict(cropped)
 
             if str(idx) not in data:
                 continue
@@ -297,12 +290,12 @@ class FaceTracker:
                     )
                     if res is None:
                         continue
-            
+
             if send_api_counter % 1000 == 0:
                 self.TOKEN = utils.get_token()
 
             send_api_counter += 1
-            #CHECK IS FACE VALID BEFORE POST TO THE SERVER
+            # CHECK IS FACE VALID BEFORE POST TO THE SERVER
 
             # res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
             # if res is None:
@@ -322,8 +315,6 @@ class FaceTracker:
             #         )
             #         if res is None:
             #             continue
-                
-            
 
             # if str(idx) not in data:
             #     continue
@@ -340,9 +331,8 @@ class FaceTracker:
             #         )
             #         if res is None:
             #             continue
-            
+
             # REFRESH TOKEN
-            
 
     def get_roi(self):
         return self.roi_manager
@@ -359,15 +349,15 @@ class FaceTracker:
     def set_size_face(self, w, h):
         self.size_face_manager["w"] = w
         self.size_face_manager["h"] = h
-    
+
     def get_det_settings(self):
         data = {
-            'conf': self.manager["det_conf"],
-            'max_time_check': self.manager["max_time_check"],
-            'check_freq': self.manager["check_freq"]
+            "conf": self.manager["det_conf"],
+            "max_time_check": self.manager["max_time_check"],
+            "check_freq": self.manager["check_freq"],
         }
         return data
-    
+
     def set_det_settings(self, data):
         self.manager["det_conf"] = data["conf"]
         self.manager["max_time_check"] = data["max_time_check"]
@@ -375,7 +365,7 @@ class FaceTracker:
 
     def set_check_restart(self):
         self.manager["is_restart"] = True
-    
+
     def get_image_size(self):
 
         if self.manager["image_size"] is not None:
