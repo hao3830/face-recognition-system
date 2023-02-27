@@ -1,10 +1,12 @@
 import cv2
 import onnxruntime as ort
 import numpy as np
+
+# TODO: Testing using google libary mediapipe facemesh
 class FaceQuality:
     def __init__(self, backbone_path, quality_path, confident):
-        sess_opt = ort.SessionOptions()
-        sess_opt.intra_op_num_threads = 3
+        # sess_opt = ort.SessionOptions()
+        # sess_opt.intra_op_num_threads = 3
         self.backbone = ort.InferenceSession(backbone_path)
         self.quality = ort.InferenceSession(quality_path)
         self.confident = confident

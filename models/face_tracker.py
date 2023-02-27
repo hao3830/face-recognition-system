@@ -74,9 +74,19 @@ class FaceTracker:
             # Pipeline defined, now the device is connected to
             self.device = dai.Device(pipeline, usb2Mode=True)
         except Exception as error:
+
+            Q.close()
+            Q.join_thread()
+            del Q
+
             data["is_kill"] = True
             p1.join()
+            del p1
+
             p2.join()
+            del p2
+
+            del data
             raise (error)
 
         # Start the pipeline
@@ -148,7 +158,6 @@ class FaceTracker:
                     str(t.id) in data
                     and data[str(t.id)]["face_quality_valid"] == False
                     and t.status == dai.Tracklet.TrackingStatus.TRACKED
-                    # and data[str(t.id)]["sent"] < self.manager["max_time_check"]
                     and check_frequent_counter % self.manager["check_freq"] == 0
                     and isContain == True
                 ):
@@ -270,10 +279,10 @@ class FaceTracker:
             cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
             # status = utils.good_bad_face(cropped_bytes)
-            import time
-            start = time.time()
+            # import time
+            # start = time.time()
             status = models.face_quality.predict(cropped)
-            print(time.time() - start)
+            # print(time.time() - start)
 
             if str(idx) not in data:
                 continue
@@ -285,7 +294,12 @@ class FaceTracker:
 
             if status != "bad":
                 curr["face_quality_valid"] = True
-                data[str(idx)] = {**curr}
+
+                if str(idx) in data:
+                    data[str(idx)] = {**curr}
+                else:
+                    continue
+                
                 res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
                 if res is None:
                     res = utils.insert_face(
@@ -298,44 +312,7 @@ class FaceTracker:
                 self.TOKEN = utils.get_token()
 
             send_api_counter += 1
-            # CHECK IS FACE VALID BEFORE POST TO THE SERVER
 
-            # res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
-            # if res is None:
-            #     self.TOKEN = utils.get_token()
-            #     res = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
-            #     if res is None:
-            #         continue
-            # res = res.json()
-
-            # if res["code"] == 1000:
-            #     curr["face_quality_valid"] = True
-            #     res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-            #     if res is None:
-            #         self.TOKEN = utils.get_token()
-            #         res = utils.insert_face(
-            #             cropped_bytes=cropped_bytes, headers=headers
-            #         )
-            #         if res is None:
-            #             continue
-
-            # if str(idx) not in data:
-            #     continue
-            # curr["sent"] += 1
-            # data[str(idx)] = {**curr}
-            # if (
-            #     data[str(idx)]["sent"] == self.manager["max_time_check"]
-            #     and data[str(idx)]["face_quality_valid"] == False
-            # ):
-            #     res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-            #     if res is None:
-            #         res = utils.insert_face(
-            #             cropped_bytes=cropped_bytes, headers=headers
-            #         )
-            #         if res is None:
-            #             continue
-
-            # REFRESH TOKEN
 
     def get_roi(self):
         return self.roi_manager
