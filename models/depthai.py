@@ -18,7 +18,7 @@ def get_pipeline(conf = 0.5):
     xlinkOut.setStreamName("preview")
     trackerOut.setStreamName("tracklets")
 
-    colorCam.setPreviewSize(720, 720)
+    colorCam.setPreviewSize(500, 500)
     colorCam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
     colorCam.setInterleaved(False)
     colorCam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
@@ -27,7 +27,7 @@ def get_pipeline(conf = 0.5):
 
     # setting node configs
     detectionNetwork.setBlobPath(
-        blobconverter.from_zoo(name="face-detection-retail-0004", shaves=6)
+        blobconverter.from_zoo(name="face-detection-retail-0005", shaves=6)
     )
     detectionNetwork.setConfidenceThreshold(conf)
     detectionNetwork.input.setBlocking(False)

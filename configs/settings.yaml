@@ -1,10 +1,10 @@
-check_freq: 2
+check_freq: 1
 det_conf: 0.5
 max_time_check: 1
 roi:
-  h: 662
-  w: 662
-  x: 31
-  y: 22
+  h: 458
+  w: 458
+  x: 11
+  y: 16
 size_face_h: 100
 size_face_w: 100
