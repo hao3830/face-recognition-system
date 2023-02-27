@@ -196,7 +196,8 @@ class FaceTracker:
                     curr["lostCnt"] += 1
                     data[str(t.id)] = {**curr}
                     # If tracklet has been "LOST" for more than 10 frames, remove it
-                    if (
+                    if (str(t.id) in data and
+                        "lostCnt" in data[str(t.id)] and
                         10 < data[str(t.id)]["lostCnt"]
                         and "lost" not in data[str(t.id)]
                     ):
@@ -205,7 +206,7 @@ class FaceTracker:
                         data[str(t.id)] = {**curr}
                 elif (
                     t.status == dai.Tracklet.TrackingStatus.REMOVED
-                ) and "lost" not in data[str(t.id)]:
+                ) and str(t.id) in data and "lost" in data[str(t.id)]:
                     data.pop(str(t.id))
 
             cv2.putText(
