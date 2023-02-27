@@ -59,35 +59,35 @@ class FaceTracker:
         self.device = None
 
     def run(self):
-        try:
-            Q = Queue(maxsize=30)
-            data = Manager().dict()
+        # try:
+        Q = Queue(maxsize=30)
+        data = Manager().dict()
 
-            p1 = Thread(target=self.send_reg_api, args=(Q, data))
-            p1.start()
+        p1 = Thread(target=self.send_reg_api, args=(Q, data))
+        p1.start()
 
-            p2 = Thread(target=self.convert_frame, args=(data,))
-            p2.start()
+        p2 = Thread(target=self.convert_frame, args=(data,))
+        p2.start()
 
-            pipeline = models.get_pipeline(self.manager["det_conf"])
+        pipeline = models.get_pipeline(self.manager["det_conf"])
 
-            # Pipeline defined, now the device is connected to
-            self.device = dai.Device(pipeline, usb2Mode=True)
-        except Exception as error:
+        # Pipeline defined, now the device is connected to
+        self.device = dai.Device(pipeline, usb2Mode=True)
+        # except Exception as error:
 
-            Q.close()
-            Q.join_thread()
-            del Q
+        #     Q.close()
+        #     Q.join_thread()
+        #     del Q
 
-            data["is_kill"] = True
-            p1.join()
-            del p1
+        #     data["is_kill"] = True
+        #     p1.join()
+        #     del p1
 
-            p2.join()
-            del p2
+        #     p2.join()
+        #     del p2
 
-            del data
-            raise (error)
+        #     del data
+        #     raise (error)
 
         # Start the pipeline
         self.device.startPipeline()
