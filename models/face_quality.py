@@ -19,6 +19,9 @@ class FaceQuality:
         self.quality = ort.InferenceSession(quality_path, options, providers=[("CUDAExecutionProvider", cuda_provider_options)])
         self.confident = confident
 
+        #Warm up
+        self.warm_up()
+
     def predict(self, image):
         resized = cv2.resize(image, (112, 112))
         ccropped = resized[...,::-1] # BGR to RGB
@@ -33,3 +36,13 @@ class FaceQuality:
             return "bad"
         
         return "good"
+
+    def warm_up(self):
+        rgb = np.random.randint(255, size=(112,112,3),dtype=np.uint8)
+        ccropped = rgb[...,::-1] # BGR to RGB
+        ccropped = ccropped.swapaxes(1, 2).swapaxes(0, 1)
+        ccropped = np.reshape(ccropped, [1, 3, 112, 112])
+        ccropped = np.array(ccropped, dtype = np.float16)
+        ccropped = (ccropped - 127.5) / 128.0
+        fc = self.backbone.run(None, {'input': ccropped})
+        pred = self.quality.run(None, {'input': fc[0]})[0][0][0]
