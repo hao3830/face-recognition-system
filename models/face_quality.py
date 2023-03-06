@@ -11,11 +11,12 @@ class FaceQuality:
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
         # options.optimized_model_filepath = None 
         # options.device_id = 0
-        
+
         mem_limit = 1024 * 1024 * 1024
-        ort.set_session_config(options, 'cuda', {"gpu_mem_limit": str(mem_limit)})
-        self.backbone = ort.InferenceSession(backbone_path,providers=[ 'CUDAExecutionProvider'])
-        self.quality = ort.InferenceSession(quality_path, providers=['CUDAExecutionProvider'])
+        options.set_gpu_memory_limit(mem_limit)
+        # ort.set_session_config(options, 'cuda', {"gpu_mem_limit": str(mem_limit)})
+        self.backbone = ort.InferenceSession(backbone_path,options,providers=[ 'CUDAExecutionProvider'])
+        self.quality = ort.InferenceSession(quality_path, options, providers=['CUDAExecutionProvider'])
         self.confident = confident
 
     def predict(self, image):
