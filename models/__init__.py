@@ -19,6 +19,7 @@ face_tracker_controler = FaceTracker()
 
 
 def auto_restart():
+    global face_tracker_controler
     while True:
         try:
             face_tracker_controler.run()

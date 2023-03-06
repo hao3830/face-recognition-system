@@ -5,7 +5,7 @@ import cv2
 import time
 import depthai as dai
 
-from multiprocessing import Queue, Manager
+from multiprocessing import Queue, Manager, Process
 from threading import Thread
 from logging import getLogger
 
@@ -59,35 +59,35 @@ class FaceTracker:
         self.device = None
 
     def run(self):
-        # try:
-        Q = Queue(maxsize=30)
-        data = Manager().dict()
+        try:
+            Q = Queue(maxsize=30)
+            data = Manager().dict()
 
-        p1 = Thread(target=self.send_reg_api, args=(Q, data))
-        p1.start()
+            p1 = Thread(target=self.send_reg_api, args=(Q, data))
+            p1.start()
 
-        p2 = Thread(target=self.convert_frame, args=(data,))
-        p2.start()
+            p2 = Thread(target=self.convert_frame, args=(data,))
+            p2.start()
 
-        pipeline = models.get_pipeline(self.manager["det_conf"])
+            pipeline = models.get_pipeline(self.manager["det_conf"])
 
-        # Pipeline defined, now the device is connected to
-        self.device = dai.Device(pipeline, usb2Mode=True)
-        # except Exception as error:
+            # Pipeline defined, now the device is connected to
+            self.device = dai.Device(pipeline, usb2Mode=True)
+        except Exception as error:
 
-        #     Q.close()
-        #     Q.join_thread()
-        #     del Q
+            Q.close()
+            Q.join_thread()
+            del Q
 
-        #     data["is_kill"] = True
-        #     p1.join()
-        #     del p1
+            data["is_kill"] = True
+            p1.join()
+            del p1
 
-        #     p2.join()
-        #     del p2
+            p2.join()
+            del p2
 
-        #     del data
-        #     raise (error)
+            del data
+            raise (error)
 
         # Start the pipeline
         self.device.startPipeline()
@@ -97,11 +97,11 @@ class FaceTracker:
 
         startTime = time.monotonic()
         counter = 0
-        check_frequent_counter = 0
         fps = 0
         frame = None
         while True:
-
+            # if end_idx == 50:
+            #     raise("My Error")
             self.manager["is_restart"] = False
 
             imgFrame = preview.get()
@@ -158,11 +158,13 @@ class FaceTracker:
                     str(t.id) in data
                     and data[str(t.id)]["face_quality_valid"] == False
                     and t.status == dai.Tracklet.TrackingStatus.TRACKED
-                    and check_frequent_counter % self.manager["check_freq"] == 0
+                    and (time.time() - data[str(t.id)]["last_check_time"])
+                    >= self.manager["check_freq"]
                     and isContain == True
                 ):
+                    data[str(t.id)]["last_check_time"] = time.time()
                     Q.put((new_frame, bbox, str(t.id)))
-                check_frequent_counter += 1
+
                 if STATUS_MAP[t.status] != "LOST" and STATUS_MAP[t.status] != "REMOVED":
                     cv2.putText(
                         frame,
@@ -187,7 +189,11 @@ class FaceTracker:
 
                 # Tracking save
                 if t.status == dai.Tracklet.TrackingStatus.NEW:
-                    data[str(t.id)] = {"face_quality_valid": False, "sent": 0}  # Reset
+                    data[str(t.id)] = {
+                        "face_quality_valid": False,
+                        "sent": 0,
+                        "last_check_time": time.time(),
+                    }  # Reset
                 elif t.status == dai.Tracklet.TrackingStatus.TRACKED:
                     #                data[str(t.id)]['lostCnt'] = 0
                     data[str(t.id)] = {**data[str(t.id)], "lostCnt": 0}
@@ -196,17 +202,20 @@ class FaceTracker:
                     curr["lostCnt"] += 1
                     data[str(t.id)] = {**curr}
                     # If tracklet has been "LOST" for more than 10 frames, remove it
-                    if (str(t.id) in data and
-                        "lostCnt" in data[str(t.id)] and
-                        10 < data[str(t.id)]["lostCnt"]
+                    if (
+                        str(t.id) in data
+                        and "lostCnt" in data[str(t.id)]
+                        and 10 < data[str(t.id)]["lostCnt"]
                         and "lost" not in data[str(t.id)]
                     ):
                         curr = data[str(t.id)]
                         curr["lost"] = True
                         data[str(t.id)] = {**curr}
                 elif (
-                    t.status == dai.Tracklet.TrackingStatus.REMOVED
-                ) and str(t.id) in data and "lost" in data[str(t.id)]:
+                    (t.status == dai.Tracklet.TrackingStatus.REMOVED)
+                    and str(t.id) in data
+                    and "lost" in data[str(t.id)]
+                ):
                     data.pop(str(t.id))
 
             cv2.putText(
@@ -226,7 +235,7 @@ class FaceTracker:
 
     def convert_frame(self, data):
         while True:
-
+            # print("1")
             if "is_kill" in data:
                 return
 
@@ -255,6 +264,7 @@ class FaceTracker:
         send_api_counter = 0
 
         while True:
+            # print("1")
             if "is_kill" in data:
                 return
 
@@ -280,9 +290,8 @@ class FaceTracker:
             cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
             # status = utils.good_bad_face(cropped_bytes)
-
             status = models.face_quality.predict(cropped)
-
+            # status = "good"
 
             if str(idx) not in data:
                 continue
@@ -299,7 +308,7 @@ class FaceTracker:
                     data[str(idx)] = {**curr}
                 else:
                     continue
-                
+
                 res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
                 if res is None:
                     res = utils.insert_face(
@@ -312,7 +321,6 @@ class FaceTracker:
                 self.TOKEN = utils.get_token()
 
             send_api_counter += 1
-
 
     def get_roi(self):
         return self.roi_manager
