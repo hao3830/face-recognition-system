@@ -9,14 +9,14 @@ class FaceQuality:
         options.intra_op_num_threads = 1
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
-        # options.optimized_model_filepath = None 
-        # options.device_id = 0
-
-        mem_limit = 1024 * 1024 * 1024
-        options.set_gpu_memory_limit(mem_limit)
+        cuda_provider_options = {
+            "arena_extend_strategy": "kSameAsRequested",
+            }
+        # mem_limit = 1024 * 1024 * 1024
+        # options.set_gpu_memory_limit(mem_limit)
         # ort.set_session_config(options, 'cuda', {"gpu_mem_limit": str(mem_limit)})
-        self.backbone = ort.InferenceSession(backbone_path,options,providers=[ 'CUDAExecutionProvider'])
-        self.quality = ort.InferenceSession(quality_path, options, providers=['CUDAExecutionProvider'])
+        self.backbone = ort.InferenceSession(backbone_path,options,providers=[ ("CUDAExecutionProvider", cuda_provider_options)])
+        self.quality = ort.InferenceSession(quality_path, options, providers=[("CUDAExecutionProvider", cuda_provider_options)])
         self.confident = confident
 
     def predict(self, image):
