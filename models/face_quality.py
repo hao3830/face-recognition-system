@@ -9,7 +9,7 @@ class FaceQuality:
         options.intra_op_num_threads = 1
         options.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
         options.graph_optimization_level = ort.GraphOptimizationLevel.ORT_DISABLE_ALL
-        options.optimized_model_filepath = None 
+        # options.optimized_model_filepath = None 
         options.device_id = 0
         mem_limit = 1024 * 1024 * 1024
         ort.set_session_config(options, 'cuda', {"gpu_mem_limit": str(mem_limit)})
