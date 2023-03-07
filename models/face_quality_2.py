@@ -27,7 +27,8 @@ class FaceQuality:
         right_eye_open = (right_eye[4].x - right_eye[0].x) / (
             right_eye[3].x - right_eye[1].x
         )
-
+        if left_eye_open < 0.15 or right_eye_open < 0.15:
+            print("is_eyes_closed")
         return left_eye_open < 0.15 or right_eye_open < 0.15
 
     def is_face_tilt(self, face_landmarks):
@@ -42,6 +43,8 @@ class FaceQuality:
         eye_distance = abs(left_eye_inner.x - right_eye_inner.x)
         nose_distance = abs(nose_tip.y - left_eye_inner.y)
         face_angle = abs(nose_tip.z - left_eye_inner.z)
+        if eye_distance / nose_distance < 0.25 or face_angle > 0.15:
+            print("is_face_tilt")
 
         return eye_distance / nose_distance < 0.25 or face_angle > 0.15
 
@@ -57,7 +60,8 @@ class FaceQuality:
             nose_tip.y - mouth_landmarks[19].y
         )
         mouth_open = mouth_height / mouth_width
-
+        if (mouth_open > 0.5) :
+            print("mouth_open")
         return mouth_open > 0.5
 
     def run(self, image):
