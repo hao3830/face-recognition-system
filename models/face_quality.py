@@ -20,6 +20,7 @@ class FaceQuality:
         self.confident = confident
 
         #Warm up
+        print("Warm up model ...")
         self.warm_up()
 
     def predict(self, image):
