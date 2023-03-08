@@ -197,7 +197,7 @@ class FaceTracker:
                 elif t.status == dai.Tracklet.TrackingStatus.TRACKED:
                     #                data[str(t.id)]['lostCnt'] = 0
                     data[str(t.id)] = {**data[str(t.id)], "lostCnt": 0}
-                elif t.status == dai.Tracklet.TrackingStatus.LOST:
+                elif t.status == dai.Tracklet.TrackingStatus.LOST and str(t.id) in data:
                     curr = data[str(t.id)]
                     curr["lostCnt"] += 1
                     data[str(t.id)] = {**curr}
