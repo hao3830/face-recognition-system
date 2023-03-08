@@ -194,7 +194,7 @@ class FaceTracker:
                         "sent": 0,
                         "last_check_time": time.time(),
                     }  # Reset
-                elif t.status == dai.Tracklet.TrackingStatus.TRACKED:
+                elif t.status == dai.Tracklet.TrackingStatus.TRACKED and str(t.id) in data:
                     #                data[str(t.id)]['lostCnt'] = 0
                     data[str(t.id)] = {**data[str(t.id)], "lostCnt": 0}
                 elif t.status == dai.Tracklet.TrackingStatus.LOST and str(t.id) in data:
