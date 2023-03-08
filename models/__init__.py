@@ -5,7 +5,7 @@ from threading import Thread
 
 from models.face_tracker import FaceTracker
 from models.depthai import get_pipeline
-from models.face_quality import FaceQuality
+# from models.face_quality import FaceQuality
 from models.face_quality_2 import FaceQuality
 
 face_quality_configs = utils.get_face_quality_config()
