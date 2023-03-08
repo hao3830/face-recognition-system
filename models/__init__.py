@@ -23,10 +23,10 @@ face_tracker_controler = FaceTracker()
 def auto_restart():
     # global face_tracker_controler
     while True:
-        # try:
-        face_tracker_controler.run()
-        # except Exception as err:
-        #     print(f"err: {err}")
+        try:
+            face_tracker_controler.run()
+        except Exception as err:
+            print(f"err: {err}")
             # del face_tracker_controler
             
             #Redefine 
