@@ -21,16 +21,16 @@ face_tracker_controler = FaceTracker()
 
 
 def auto_restart():
-    global face_tracker_controler
+    # global face_tracker_controler
     while True:
-        try:
-            face_tracker_controler.run()
-        except Exception as err:
-            print(f"err: {err}")
-            del face_tracker_controler
+        # try:
+        face_tracker_controler.run()
+        # except Exception as err:
+        #     print(f"err: {err}")
+            # del face_tracker_controler
             
             #Redefine 
-            face_tracker_controler = FaceTracker()
+            # face_tracker_controler = FaceTracker()
 
         if face_tracker_controler.device is not None:
             face_tracker_controler.device.close()
