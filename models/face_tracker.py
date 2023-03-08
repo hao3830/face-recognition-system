@@ -75,10 +75,6 @@ class FaceTracker:
             self.device = dai.Device(pipeline, usb2Mode=True)
         except Exception as error:
 
-            Q.close()
-            Q.join_thread()
-            del Q
-
             data["is_kill"] = True
             p1.join()
             del p1
@@ -86,6 +82,10 @@ class FaceTracker:
             p2.join()
             del p2
 
+
+            Q.close()
+            Q.join_thread()
+            del Q
             del data
             raise (error)
 
@@ -206,15 +206,11 @@ class FaceTracker:
                         str(t.id) in data
                         and "lostCnt" in data[str(t.id)]
                         and 10 < data[str(t.id)]["lostCnt"]
-                        and "lost" not in data[str(t.id)]
                     ):
-                        curr = data[str(t.id)]
-                        curr["lost"] = True
-                        data[str(t.id)] = {**curr}
+                        data.pop(str(t.id))
                 elif (
                     (t.status == dai.Tracklet.TrackingStatus.REMOVED)
                     and str(t.id) in data
-                    and "lost" in data[str(t.id)]
                 ):
                     data.pop(str(t.id))
 
