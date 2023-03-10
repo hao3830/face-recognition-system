@@ -240,8 +240,8 @@ class FaceTracker:
     def convert_frame(self, data):
         while True:
             # print("1")
-            if "is_kill" in data:
-                return
+            if data["is_kill"]:
+                break
 
             if "frame" not in self.manager or "frame_default" not in self.manager:
                 continue
