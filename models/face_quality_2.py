@@ -6,10 +6,10 @@ import numpy as np
 
 settings = utils.get_face_quality_assessment_config()
 
+mp_face_mesh = mp.solutions.face_mesh
 
 class FaceQuality:
     def __init__(self, min_detection_confidence, threshold_angle, close_eye_thres):
-        mp_face_mesh = mp.solutions.face_mesh
 
         self.face_mesh = mp_face_mesh.FaceMesh(
             static_image_mode=False,
