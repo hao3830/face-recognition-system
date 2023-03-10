@@ -1,17 +1,20 @@
 import cv2
+import utils
 
 import mediapipe as mp
 import numpy as np
 
+settings = utils.get_face_quality_assessment_config()
+
 
 class FaceQuality:
-    def __init__(self):
+    def __init__(self, min_detection_confidence, threshold_angle, close_eye_thres):
         mp_face_mesh = mp.solutions.face_mesh
 
         self.face_mesh = mp_face_mesh.FaceMesh(
-            static_image_mode=True,
+            static_image_mode=False,
             max_num_faces=1,
-            min_detection_confidence=0.7,
+            min_detection_confidence=min_detection_confidence,
         )
 
         self.right_eye = [
@@ -23,8 +26,8 @@ class FaceQuality:
         self.left_eye = [[263, 362], [387, 373], [386, 374], [385, 380]]
 
         # RULE THRESHOLD
-        self.threshold_angle = 30
-        self.close_eye_thres = 0.2
+        self.threshold_angle = threshold_angle
+        self.close_eye_thres = close_eye_thres
 
     def distance(self, p1, p2):
         """Calculate distance between two points
@@ -138,3 +141,16 @@ class FaceQuality:
                 ):
                     return "good"
         return "bad"
+
+    @staticmethod
+    def get_face_quality_assessment():
+        face_quality_assessment_settings = utils.get_face_quality_assessment_config()
+        return dict(
+            min_detection_confidence=face_quality_assessment_settings.min_detection_confidence,
+            face_angle=face_quality_assessment_settings.face_angle,
+            ear=face_quality_assessment_settings.ear,
+        )
+
+    @staticmethod
+    def set_face_quality_assessment(min_detection_confidence, face_angle, ear):
+        pass

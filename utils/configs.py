@@ -48,3 +48,10 @@ def set_settings_config(data):
 
 def get_face_quality_config():
     return _get_config("configs/face_quality.yaml")
+
+def get_face_quality_assessment_config():
+    return _get_config("configs/face_quality_assessment.yaml")
+
+def set_face_quality_assessment_config(data):
+    return _set_config("configs/face_quality_assessment.yaml",data)
+
