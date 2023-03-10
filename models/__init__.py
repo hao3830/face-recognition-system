@@ -37,16 +37,16 @@ def auto_restart():
             #Redefine 
             # face_tracker_controler = FaceTracker()
         del face_quality
+        if face_tracker_controler.device is not None:
+            face_tracker_controler.device.close()
+        time.sleep(0.5)
+        face_quality_assessment = utils.get_face_quality_assessment_config()
         face_quality = FaceQuality(
             min_detection_confidence=face_quality_assessment.min_detection_confidence,
             threshold_angle=face_quality_assessment.face_angle,
             close_eye_thres=face_quality_assessment.ear
         )
 
-        if face_tracker_controler.device is not None:
-            face_tracker_controler.device.close()
-
-        time.sleep(0.5)
 
 
 thread = Thread(target=auto_restart)

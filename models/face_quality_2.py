@@ -135,10 +135,7 @@ class FaceQuality:
                 landmarks_positions = np.array(landmarks_positions)
                 landmarks_positions[:, 0] *= image.shape[1]
                 landmarks_positions[:, 1] *= image.shape[0]
-                if self.is_eyes_closed(landmarks_positions):
-                    print("eye closed")
-                if self.is_face_tilt(face_landmarks, image):
-                    print("face angle error")
+
                 
                 if not (
                     self.is_eyes_closed(landmarks_positions)
