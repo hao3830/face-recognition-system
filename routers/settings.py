@@ -116,3 +116,44 @@ def get_image_size():
             "str_code": "200 OK",
             "image_size": image_size,
         }
+
+@router.get("/face_quality_assessment")
+def get_face_quality_assessment():
+
+    data = models.face_quality.get_face_quality_assessment()
+    return_info = {
+        "min_detection_confidence": data['min_detection_confidence'],
+        "face_angle": data['face_angle'],
+        "ear": data['ear'],
+    }
+
+    return {
+        "code": 200,
+        "message": "200OK",
+        "str_code": "200 OK",
+        "face_quality_assessment": return_info
+    }
+
+class FaceQualityAssessment(BaseModel):
+    min_detection_confidence: float
+    face_angle: float
+    ear: float
+
+@router.post("/face_quality_assessment")
+def set_face_quality_assessment(face_quality_assessment: FaceQualityAssessment):
+    data = {
+        "min_detection_confidence": face_quality_assessment.min_detection_confidence,
+        "face_angle": face_quality_assessment.face_angle,
+        "ear": face_quality_assessment.ear,
+    }
+
+    result = utils.set_face_quality_assessment_config(data)
+    if result:
+        # models.face_tracker_controler.set_check_restart()
+        return {"code": 200, "message": "200OK", "str_code": "200 OK"}
+
+    return {
+        "code": 400,
+        "message": "InternalServerError",
+        "str_code": "Internal Server Error",
+    }

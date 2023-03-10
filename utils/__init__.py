@@ -5,6 +5,8 @@ from utils.configs import (
     set_settings_config,
     get_settings_config_without_parse_yaml,
     get_face_quality_config,
+    get_face_quality_assessment_config,
+    set_face_quality_assessment_config
 )
 from utils.camera import gen_frame, streamer
 from utils.logger import BiggerRotatingFileHandler
