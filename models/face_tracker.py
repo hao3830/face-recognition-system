@@ -285,7 +285,6 @@ class FaceTracker:
             # IS FACE IMAGE HAS SENT => RESET
             if (
                 str(idx) not in data
-                or data[str(idx)]["sent"] >= self.manager["max_time_check"]
                 or data[str(idx)]["face_quality_valid"] == True
             ):
                 continue
@@ -300,7 +299,7 @@ class FaceTracker:
             if str(idx) not in data:
                 continue
             curr = data[str(idx)]
-            if status == "bad" and curr["sent"] < self.manager["max_time_check"]:
+            if status == "bad":
                 continue
             logger.info("Sent Face Image")
             headers = {"Authorization": f"Bearer {self.TOKEN}"}
@@ -313,13 +312,7 @@ class FaceTracker:
                 else:
                     continue
 
-                res = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-                if res is None:
-                    res = utils.insert_face(
-                        cropped_bytes=cropped_bytes, headers=headers
-                    )
-                    if res is None:
-                        continue
+                _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
 
             if send_api_counter % 1000 == 0:
                 self.TOKEN = utils.get_token()
