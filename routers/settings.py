@@ -157,3 +157,12 @@ def set_face_quality_assessment(face_quality_assessment: FaceQualityAssessment):
         "message": "InternalServerError",
         "str_code": "Internal Server Error",
     }
+
+@router.get('/models')
+def get_models_config():
+    # data = 
+    return {
+        "code": 200,
+        "message": "200OK",
+        "str_code": "200 OK",
+    }

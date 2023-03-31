@@ -74,21 +74,20 @@ class FaceTracker:
 
             # Pipeline defined, now the device is connected to
             self.device = dai.Device(pipeline, usb2Mode=True)
-        
 
             # Start the pipeline
             self.device.startPipeline()
 
             preview = self.device.getOutputQueue("preview", maxSize=30, blocking=False)
-            tracklets = self.device.getOutputQueue("tracklets", maxSize=30, blocking=False)
+            tracklets = self.device.getOutputQueue(
+                "tracklets", maxSize=30, blocking=False
+            )
 
             startTime = time.monotonic()
             counter = 0
             fps = 0
             frame = None
             while True:
-                # if end_idx == 50:
-                #     raise("My Error")
                 self.manager["is_restart"] = False
 
                 imgFrame = preview.get()
@@ -103,11 +102,11 @@ class FaceTracker:
                     counter = 0
                     startTime = current_time
 
-                color = (255, 0, 0)
                 frame = imgFrame.getCvFrame()
                 # frame = cv2.resize(frame,(500,500))
                 self.manager["image_size"] = frame.shape
                 new_frame = frame.copy()
+                default_frame = frame.copy()
                 overlay = frame.copy()
 
                 trackletsData = track.tracklets
@@ -140,26 +139,34 @@ class FaceTracker:
                     bbox = [x1, y1, x2, y2]
 
                     isContain = utils.ImageProcess.isContain(bbox, limit_roi)
-
+                    #TODO: show result face detected but not comfortable
+                    if not self.check_face_size(bbox):
+                        continue
+                    
                     if (
                         str(t.id) in data
                         and data[str(t.id)]["face_quality_valid"] == False
-                        and t.status == dai.Tracklet.TrackingStatus.TRACKED
+                        and not data[str(t.id)]["face_quality_valid"]
                         and (time.time() - data[str(t.id)]["last_check_time"])
-                        >= self.manager["check_freq"]
+                        >= self.manager["check_freq"] 
+                        and data[str(t.id)]['sent'] < self.manager["max_time_check"]
+                        and not data[str(t.id)]["start_sent"]
+                        and t.status == dai.Tracklet.TrackingStatus.TRACKED
                         and isContain == True
                     ):
-                        data[str(t.id)]["last_check_time"] = time.time()
-                        Q.put((new_frame, bbox, str(t.id)))
+                        Q.put((default_frame, bbox, str(t.id)))
 
-                    if STATUS_MAP[t.status] != "LOST" and STATUS_MAP[t.status] != "REMOVED":
+                    if (
+                        STATUS_MAP[t.status] != "LOST"
+                        and STATUS_MAP[t.status] != "REMOVED"
+                    ):
                         cv2.putText(
                             frame,
                             f"ID:{t.id}",
                             (x1 + 10, y1 + 35),
                             cv2.FONT_HERSHEY_TRIPLEX,
                             0.5,
-                            color,
+                            utils.ImageProcess.blue,
                         )
                         cv2.putText(
                             frame,
@@ -167,11 +174,23 @@ class FaceTracker:
                             (x1 + 10, y1 + 50),
                             cv2.FONT_HERSHEY_TRIPLEX,
                             0.5,
-                            color,
+                            utils.ImageProcess.blue,
                         )
 
-                        cv2.rectangle(
-                            frame, (x1, y1), (x2, y2), color, cv2.FONT_HERSHEY_SIMPLEX
+                        if str(t.id) in data and data[str(t.id)]['face_quality_valid']:
+                            box_color = utils.ImageProcess.green
+                        elif str(t.id) in data and data[str(t.id)]['sent'] >= self.manager["max_time_check"]:
+                            box_color = utils.ImageProcess.red
+                        elif str(t.id) in data and data[str(t.id)]['start_sent']:
+                            box_color = utils.ImageProcess.yellow
+                        else:
+                            box_color = utils.ImageProcess.light_grey
+        
+                        frame = utils.ImageProcess.draw_4_rounded_conner_bbox(
+                            frame, bbox, box_color, thickness=3
+                        )
+                        new_frame = utils.ImageProcess.draw_4_rounded_conner_bbox(
+                            new_frame, bbox, box_color, thickness=3
                         )
 
                     # Tracking save
@@ -180,17 +199,24 @@ class FaceTracker:
                             "face_quality_valid": False,
                             "sent": 0,
                             "last_check_time": time.time(),
+                            'start_sent': False,
                         }  # Reset
-                    elif t.status == dai.Tracklet.TrackingStatus.TRACKED and str(t.id) in data:
+                    elif (
+                        t.status == dai.Tracklet.TrackingStatus.TRACKED
+                        and str(t.id) in data
+                    ):
                         #                data[str(t.id)]['lostCnt'] = 0
                         data[str(t.id)] = {**data[str(t.id)], "lostCnt": 0}
-                    elif t.status == dai.Tracklet.TrackingStatus.LOST and str(t.id) in data:
+                    elif (
+                        t.status == dai.Tracklet.TrackingStatus.LOST
+                        and str(t.id) in data
+                    ):
                         curr = data[str(t.id)]
                         if "lostCnt" in curr:
                             curr["lostCnt"] += 1
                         else:
                             curr["lostCnt"] = 0
-                        
+
                         data[str(t.id)] = {**curr}
                         # If tracklet has been "LOST" for more than 10 frames, remove it
                         if (
@@ -199,10 +225,9 @@ class FaceTracker:
                             and 10 < data[str(t.id)]["lostCnt"]
                         ):
                             data.pop(str(t.id))
-                    elif (
-                        (t.status == dai.Tracklet.TrackingStatus.REMOVED)
-                        and str(t.id) in data
-                    ):
+                    elif (t.status == dai.Tracklet.TrackingStatus.REMOVED) and str(
+                        t.id
+                    ) in data:
                         data.pop(str(t.id))
 
                 cv2.putText(
@@ -211,7 +236,7 @@ class FaceTracker:
                     (2, 10),
                     cv2.FONT_HERSHEY_TRIPLEX,
                     0.5,
-                    color,
+                    utils.ImageProcess.blue,
                 )
 
                 self.manager["frame"] = frame
@@ -229,7 +254,6 @@ class FaceTracker:
 
             p2.join()
             del p2
-
 
             Q.close()
             Q.join_thread()
@@ -274,45 +298,45 @@ class FaceTracker:
             if Q.empty():
                 continue
             FRAME, BBOX, idx = Q.get()
-
-            # Check face size
-            if (
-                BBOX[2] - BBOX[0] < self.size_face_manager["w"]
-                or BBOX[3] - BBOX[1] < self.size_face_manager["h"]
-            ):
-                continue
-
-            # IS FACE IMAGE HAS SENT => RESET
-            if (
-                str(idx) not in data
-                or data[str(idx)]["face_quality_valid"] == True
-            ):
-                continue
-
             cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
-            # status = utils.good_bad_face(cropped_bytes)
-            # status = models.face_quality.predict(cropped)
             status = models.face_quality.run(cropped)
-            # status = "good"
 
+            if status == "bad":
+                continue
             if str(idx) not in data:
                 continue
             curr = data[str(idx)]
-            if status == "bad":
-                continue
+            curr['start_sent'] = True
+            data[str(idx)] = {**curr}
+
             logger.info("Sent Face Image")
             headers = {"Authorization": f"Bearer {self.TOKEN}"}
 
             if status != "bad":
-                curr["face_quality_valid"] = True
-
                 if str(idx) in data:
                     data[str(idx)] = {**curr}
-                else:
-                    continue
+                respone = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
+                respone = respone.json()
+                
 
-                _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+                if respone['str_code'] == 'NotFound':
+                    curr["face_quality_valid"] = False
+                elif respone['str_code'] == 'Done':
+                    _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+                    curr["face_quality_valid"] = True
+                
+                curr['sent'] += 1
+
+                if curr['sent'] >= self.manager["max_time_check"]:
+                    _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+
+
+            curr["last_check_time"] = time.time()
+            curr['start_sent'] = False
+            if str(idx) in data:
+                data[str(idx)] = {**curr}
+
 
             if send_api_counter % 1000 == 0:
                 self.TOKEN = utils.get_token()
@@ -361,3 +385,14 @@ class FaceTracker:
             }
 
         return None
+
+    def check_face_size(self, bbox):
+        if (
+            bbox[2] - bbox[0] < self.size_face_manager["w"]
+            or bbox[3] - bbox[1] < self.size_face_manager["h"]
+        ):
+            return False
+        return True
+    
+    def get_models_settings(self):
+        pass

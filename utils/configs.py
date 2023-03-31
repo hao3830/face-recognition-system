@@ -55,3 +55,5 @@ def get_face_quality_assessment_config():
 def set_face_quality_assessment_config(data):
     return _set_config("configs/face_quality_assessment.yaml",data)
 
+def get_models_config():
+    return _get_config("configs/models.yaml")

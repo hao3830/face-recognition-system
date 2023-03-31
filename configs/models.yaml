@@ -1,0 +1,35 @@
+face-detection-0200:
+  w: 256
+  h: 256
+  AP: '86.74%'
+  MParams: 1.828
+
+face-detection-0202:
+  w: 384
+  h: 384
+  AP: '91.94%'
+  MParams: 1.842
+
+face-detection-0204:
+  w: 448
+  h: 448
+  AP: '92.89%'
+  MParams: 1.851
+
+face-detection-0205:
+  w: 416
+  h: 416
+  AP: '93.57%'
+  MParams: 	2.392
+
+face-detection-retail-0004:
+  w: 300
+  h: 300
+  AP: '83.00%'
+  MParams: 	0.588
+
+face-detection-retail-0005:
+  w: 300
+  h: 300
+  AP: '84.52%'
+  MParams: 1.021
