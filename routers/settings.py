@@ -45,7 +45,7 @@ def set_face_size_settings(face_size: FaceSize):
 class DetectionSettings(BaseModel):
     conf: float
     max_time_check: int
-    check_freq: int
+    check_freq: float
 
 
 @router.get("/settings")
@@ -68,7 +68,7 @@ def get_settings():
 def set_settings(roi: ROI, face_size: FaceSize, det_settings: DetectionSettings):
     models.face_tracker_controler.set_roi(roi.x, roi.y, roi.w, roi.h)
     models.face_tracker_controler.set_size_face(face_size.w, face_size.h)
-
+    # print(det_settings)
     data = {
         "conf": det_settings.conf,
         "max_time_check": det_settings.max_time_check,

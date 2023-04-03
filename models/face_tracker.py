@@ -30,8 +30,8 @@ class FaceTracker:
         self.default_frame_buffer_queue = None
         self.manager = Manager().dict()
 
-        self.manager["drawed_frame_buffer"] = None
-        self.manager["default_frame_buffer"] = None
+        self.manager["drawed_frame_buffer"] = Queue(maxsize=15)
+        self.manager["default_frame_buffer"] = Queue(maxsize=15)
         self.manager["is_restart"] = False
         self.manager["det_conf"] = settings.det_conf
         self.manager["image_size"] = None
@@ -274,18 +274,18 @@ class FaceTracker:
             if frame is None or frame_default is None:
                 continue
 
-            self.manager["drawed_frame_buffer"] = cv2.imencode(".jpg", frame)[
+            self.manager["drawed_frame_buffer"].put(cv2.imencode(".jpg", frame)[
                 1
-            ].tobytes()
-            self.manager["default_frame_buffer"] = cv2.imencode(".jpg", frame_default)[
+            ].tobytes())
+            self.manager["default_frame_buffer"].put(cv2.imencode(".jpg", frame_default)[
                 1
-            ].tobytes()
+            ].tobytes())
 
     def get(self):
-        return self.manager["drawed_frame_buffer"]
+        return self.manager["drawed_frame_buffer"].get()
 
     def get_default(self):
-        return self.manager["default_frame_buffer"]
+        return self.manager["default_frame_buffer"].get()
 
     def send_reg_api(self, Q, data):
 
