@@ -288,6 +288,7 @@ class FaceTracker:
 
             self.frame.put(cv2.imencode(".jpg", frame)[1].tobytes())
             self.frame_default.put(cv2.imencode(".jpg", frame_default)[1].tobytes())
+            time.sleep(1/30)
 
     def get(self):
         return self.frame.get()
