@@ -24,8 +24,8 @@ STATUS_MAP = {
 
 class FaceTracker:
     def __init__(self):
-        self.frame = Queue()
-        self.frame_default = Queue()
+        self.frame = Queue(maxsize=30)
+        self.frame_default = Queue(maxsize=30)
         self.drawed_frame_buffer_queue = None
         self.default_frame_buffer_queue = None
         self.manager = Manager().dict()
