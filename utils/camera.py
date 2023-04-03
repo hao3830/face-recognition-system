@@ -12,7 +12,7 @@ def gen_frame(video_controller,is_default):
 #            image_buffer = cv2.imencode(".jpg", frame)[1].tobytes()
             yield (b"--frame\r\n" b"Content-Type: image/jpeg\r\n\r\n" + frame + b"\r\n")
         
-        time.sleep(1/30)
+        time.sleep(1/40)
 
 async def streamer(gen):
     try:
