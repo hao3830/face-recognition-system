@@ -330,7 +330,7 @@ class FaceTracker:
 
                 if curr['sent'] >= self.manager["max_time_check"]:
                     _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-                    curr['sent'] = 0
+                    # curr['sent'] = 0
 
 
             curr["last_check_time"] = time.time()
