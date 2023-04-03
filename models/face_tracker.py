@@ -30,8 +30,6 @@ class FaceTracker:
         self.default_frame_buffer_queue = None
         self.manager = Manager().dict()
 
-        self.manager["frame"] = Queue(maxsize=5)
-        self.manager["frame_default"] = Queue(maxsize=5)
         self.manager["drawed_frame_buffer"] = None
         self.manager["default_frame_buffer"] = None
         self.manager["is_restart"] = False
@@ -141,17 +139,17 @@ class FaceTracker:
                     bbox = [x1, y1, x2, y2]
 
                     isContain = utils.ImageProcess.isContain(bbox, limit_roi)
-                    #TODO: show result face detected but not comfortable
+                    # TODO: show result face detected but not comfortable
                     if not self.check_face_size(bbox):
                         continue
-                    
+
                     if (
                         str(t.id) in data
                         and data[str(t.id)]["face_quality_valid"] == False
                         and not data[str(t.id)]["face_quality_valid"]
                         and (time.time() - data[str(t.id)]["last_check_time"])
-                        >= self.manager["check_freq"] 
-                        and data[str(t.id)]['sent'] < self.manager["max_time_check"]
+                        >= self.manager["check_freq"]
+                        and data[str(t.id)]["sent"] < self.manager["max_time_check"]
                         and not data[str(t.id)]["start_sent"]
                         and t.status == dai.Tracklet.TrackingStatus.TRACKED
                         and isContain == True
@@ -179,15 +177,19 @@ class FaceTracker:
                             utils.ImageProcess.blue,
                         )
 
-                        if str(t.id) in data and data[str(t.id)]['face_quality_valid']:
+                        if str(t.id) in data and data[str(t.id)]["face_quality_valid"]:
                             box_color = utils.ImageProcess.green
-                        elif str(t.id) in data and data[str(t.id)]['sent'] >= self.manager["max_time_check"]:
+                        elif (
+                            str(t.id) in data
+                            and data[str(t.id)]["sent"]
+                            >= self.manager["max_time_check"]
+                        ):
                             box_color = utils.ImageProcess.red
-                        elif str(t.id) in data and data[str(t.id)]['start_sent']:
+                        elif str(t.id) in data and data[str(t.id)]["start_sent"]:
                             box_color = utils.ImageProcess.yellow
                         else:
                             box_color = utils.ImageProcess.light_grey
-        
+
                         frame = utils.ImageProcess.draw_4_rounded_conner_bbox(
                             frame, bbox, box_color, thickness=3
                         )
@@ -201,7 +203,7 @@ class FaceTracker:
                             "face_quality_valid": False,
                             "sent": 0,
                             "last_check_time": time.time(),
-                            'start_sent': False,
+                            "start_sent": False,
                         }  # Reset
                     elif (
                         t.status == dai.Tracklet.TrackingStatus.TRACKED
@@ -241,14 +243,13 @@ class FaceTracker:
                     utils.ImageProcess.blue,
                 )
 
-                self.manager["frame"].put( frame)
-                self.manager["frame_default"].put( new_frame)
+                self.manager["frame"] = frame
+                self.manager["frame_default"] = new_frame
 
                 if self.manager["is_restart"]:
                     data["is_kill"] = True
                     return
         except Exception as error:
-
             data["is_kill"] = True
             # time.sleep(0.5)
             p1.join()
@@ -269,23 +270,24 @@ class FaceTracker:
             if data["is_kill"]:
                 break
 
-            if "frame" not in self.manager or "frame_default" not in self.manager:
+            if (
+                "frame" not in self.manager
+                or "frame_default" not in self.manager
+                or self.manager["frame"] is None
+                or self.manager["frame_default"] is None
+            ):
                 continue
-            frame = self.manager["frame"].get()
-            frame_default = self.manager["frame_default"].get()
+            frame = self.manager["frame"]
+            self.manager["frame"] = None
+            frame_default = self.manager["frame_default"]
+            self.manager["frame_default"] = None
             if frame is None or frame_default is None:
                 continue
             # frame = cv2.resize(frame, (500,500) )
             # frame_default = cv2.resize(frame_default, (500,500))
 
-            self.frame.put( cv2.imencode(".jpg", frame)[
-                1
-            ].tobytes())
-            self.frame_default.put( cv2.imencode(".jpg", frame_default)[
-                1
-            ].tobytes())
-
-            
+            self.frame.put(cv2.imencode(".jpg", frame)[1].tobytes())
+            self.frame_default.put(cv2.imencode(".jpg", frame_default)[1].tobytes())
 
     def get(self):
         return self.frame.get()
@@ -294,7 +296,6 @@ class FaceTracker:
         return self.frame_default.get()
 
     def send_reg_api(self, Q, data):
-
         send_api_counter = 0
 
         while True:
@@ -312,7 +313,7 @@ class FaceTracker:
             if str(idx) not in data:
                 continue
             curr = data[str(idx)]
-            curr['start_sent'] = True
+            curr["start_sent"] = True
             data[str(idx)] = {**curr}
 
             logger.info("Sent Face Image")
@@ -321,28 +322,27 @@ class FaceTracker:
             if status != "bad":
                 if str(idx) in data:
                     data[str(idx)] = {**curr}
-                respone = utils.search_face(cropped_bytes=cropped_bytes, headers=headers)
+                respone = utils.search_face(
+                    cropped_bytes=cropped_bytes, headers=headers
+                )
                 respone = respone.json()
-                
 
-                if respone['str_code'] == 'NotFound':
+                if respone["str_code"] == "NotFound":
                     curr["face_quality_valid"] = False
-                elif respone['str_code'] == 'Done':
+                elif respone["str_code"] == "Done":
                     _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
                     curr["face_quality_valid"] = True
-                
-                curr['sent'] += 1
 
-                if curr['sent'] >= self.manager["max_time_check"]:
+                curr["sent"] += 1
+
+                if curr["sent"] >= self.manager["max_time_check"]:
                     _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-                    curr['sent'] = 0
-
+                    curr["sent"] = 0
 
             curr["last_check_time"] = time.time()
-            curr['start_sent'] = False
+            curr["start_sent"] = False
             if str(idx) in data:
                 data[str(idx)] = {**curr}
-
 
             if send_api_counter % 1000 == 0:
                 self.TOKEN = utils.get_token()
@@ -382,7 +382,6 @@ class FaceTracker:
         self.manager["is_restart"] = True
 
     def get_image_size(self):
-
         if self.manager["image_size"] is not None:
             height, width, _ = self.manager["image_size"]
             return {
@@ -399,6 +398,6 @@ class FaceTracker:
         ):
             return False
         return True
-    
+
     def get_models_settings(self):
         pass
