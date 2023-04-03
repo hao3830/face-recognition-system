@@ -18,7 +18,7 @@ def get_pipeline(conf = 0.5):
     xlinkOut.setStreamName("preview")
     trackerOut.setStreamName("tracklets")
 
-    colorCam.setPreviewSize(300, 300)
+    colorCam.setPreviewSize(500, 500)
     colorCam.setResolution(dai.ColorCameraProperties.SensorResolution.THE_1080_P)
     colorCam.setInterleaved(False)
     colorCam.setColorOrder(dai.ColorCameraProperties.ColorOrder.BGR)
