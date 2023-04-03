@@ -246,6 +246,7 @@ class FaceTracker:
                 if self.manager["is_restart"]:
                     data["is_kill"] = True
                     return
+                print(time.time() - start)
         except Exception as error:
 
             data["is_kill"] = True
@@ -276,8 +277,8 @@ class FaceTracker:
             self.manager["frame_default"] = None
             if frame is None or frame_default is None:
                 continue
-            frame = cv2.resize(frame, (500,500) )
-            frame_default = cv2.resize(frame_default, (500,500))
+            # frame = cv2.resize(frame, (500,500) )
+            # frame_default = cv2.resize(frame_default, (500,500))
 
             self.manager["drawed_frame_buffer"] = cv2.imencode(".jpg", frame)[
                 1
