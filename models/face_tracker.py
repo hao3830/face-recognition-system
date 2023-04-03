@@ -300,10 +300,7 @@ class FaceTracker:
             FRAME, BBOX, idx = Q.get()
             cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
             cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
-            import time
-            start = time.time()
             status = models.face_quality.run(cropped)
-            print(time.time() - start)
             if status == "bad":
                 continue
             if str(idx) not in data:
