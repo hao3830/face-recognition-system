@@ -242,7 +242,7 @@ class FaceTracker:
 
                 self.manager["frame"] = frame
                 self.manager["frame_default"] = new_frame
-                print(start - time.time())
+                print(time.time() - start )
 
                 if self.manager["is_restart"]:
                     data["is_kill"] = True
@@ -273,6 +273,8 @@ class FaceTracker:
                 continue
             frame = self.manager["frame"]
             frame_default = self.manager["frame_default"]
+            self.manager["frame"] = None
+            self.manager["frame_default"] = None
             if frame is None or frame_default is None:
                 continue
 
@@ -282,6 +284,8 @@ class FaceTracker:
             self.manager["default_frame_buffer"] = cv2.imencode(".jpg", frame_default)[
                 1
             ].tobytes()
+
+            
 
     def get(self):
         return self.manager["drawed_frame_buffer"]
