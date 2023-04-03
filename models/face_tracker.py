@@ -88,6 +88,7 @@ class FaceTracker:
             fps = 0
             frame = None
             while True:
+                start = time.time()
                 self.manager["is_restart"] = False
 
                 imgFrame = preview.get()
@@ -241,6 +242,7 @@ class FaceTracker:
 
                 self.manager["frame"] = frame
                 self.manager["frame_default"] = new_frame
+                print(start - time.time())
 
                 if self.manager["is_restart"]:
                     data["is_kill"] = True
