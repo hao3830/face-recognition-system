@@ -24,14 +24,14 @@ STATUS_MAP = {
 
 class FaceTracker:
     def __init__(self):
-        self.frame = Queue(maxsize=15)
-        self.frame_default = Queue(maxsize=15)
+        # self.frame = Queue()
+        # self.frame_default = Queue()
         self.drawed_frame_buffer_queue = None
         self.default_frame_buffer_queue = None
         self.manager = Manager().dict()
 
-        # self.frame = Queue(maxsize=15)
-        # self.frame_default = Queue(maxsize=15)
+        self.manager["drawed_frame_buffer"] = None
+        self.manager["default_frame_buffer"] = None
         self.manager["is_restart"] = False
         self.manager["det_conf"] = settings.det_conf
         self.manager["image_size"] = None
@@ -274,18 +274,18 @@ class FaceTracker:
             if frame is None or frame_default is None:
                 continue
 
-            self.frame.put(cv2.imencode(".jpg", frame)[
+            self.manager["drawed_frame_buffer"] = cv2.imencode(".jpg", frame)[
                 1
-            ].tobytes())
-            self.frame_default.put(cv2.imencode(".jpg", frame_default)[
+            ].tobytes()
+            self.manager["default_frame_buffer"] = cv2.imencode(".jpg", frame_default)[
                 1
-            ].tobytes())
+            ].tobytes()
 
     def get(self):
-        return self.frame.get()
+        return self.manager["drawed_frame_buffer"]
 
     def get_default(self):
-        return self.frame_default.get()
+        return self.manager["default_frame_buffer"]
 
     def send_reg_api(self, Q, data):
 
