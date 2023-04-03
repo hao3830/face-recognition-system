@@ -26,6 +26,8 @@ class FaceTracker:
     def __init__(self):
         self.frame = Queue(maxsize=5)
         self.frame_default = Queue(maxsize=5)
+        self.manager["frame"] = Queue(maxsize=5)
+        self.manager["frame_default"] = Queue(maxsize=5)
         self.drawed_frame_buffer_queue = None
         self.default_frame_buffer_queue = None
         self.manager = Manager().dict()
@@ -239,8 +241,8 @@ class FaceTracker:
                     utils.ImageProcess.blue,
                 )
 
-                self.manager["frame"] = frame
-                self.manager["frame_default"] = new_frame
+                self.manager["frame"].put( frame)
+                self.manager["frame_default"].put( new_frame)
 
                 if self.manager["is_restart"]:
                     data["is_kill"] = True
@@ -269,10 +271,8 @@ class FaceTracker:
 
             if "frame" not in self.manager or "frame_default" not in self.manager:
                 continue
-            frame = self.manager["frame"]
-            frame_default = self.manager["frame_default"]
-            self.manager["frame"] = None
-            self.manager["frame_default"] = None
+            frame = self.manager["frame"].get()
+            frame_default = self.manager["frame_default"].get()
             if frame is None or frame_default is None:
                 continue
             # frame = cv2.resize(frame, (500,500) )
