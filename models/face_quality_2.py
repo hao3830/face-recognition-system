@@ -12,7 +12,6 @@ class FaceQuality:
     def __init__(self, min_detection_confidence, threshold_angle, close_eye_thres):
 
         self.face_mesh = mp_face_mesh.FaceMesh(
-            static_image_mode=False,
             max_num_faces=1,
             min_detection_confidence=min_detection_confidence,
         )
