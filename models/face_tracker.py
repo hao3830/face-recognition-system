@@ -88,7 +88,6 @@ class FaceTracker:
             fps = 0
             frame = None
             while True:
-                start = time.time()
                 self.manager["is_restart"] = False
 
                 imgFrame = preview.get()
@@ -246,7 +245,6 @@ class FaceTracker:
                 if self.manager["is_restart"]:
                     data["is_kill"] = True
                     return
-                print(time.time() - start)
         except Exception as error:
 
             data["is_kill"] = True
@@ -280,20 +278,20 @@ class FaceTracker:
             # frame = cv2.resize(frame, (500,500) )
             # frame_default = cv2.resize(frame_default, (500,500))
 
-            self.manager["drawed_frame_buffer"] = cv2.imencode(".jpg", frame)[
+            self.frame.put( cv2.imencode(".jpg", frame)[
                 1
-            ].tobytes()
-            self.manager["default_frame_buffer"] = cv2.imencode(".jpg", frame_default)[
+            ].tobytes())
+            self.frame_default.put( cv2.imencode(".jpg", frame_default)[
                 1
-            ].tobytes()
+            ].tobytes())
 
             
 
     def get(self):
-        return self.manager["drawed_frame_buffer"]
+        return self.frame.get()
 
     def get_default(self):
-        return self.manager["default_frame_buffer"]
+        return self.frame_default.get()
 
     def send_reg_api(self, Q, data):
 
