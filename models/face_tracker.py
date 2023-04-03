@@ -277,6 +277,8 @@ class FaceTracker:
             self.manager["frame_default"] = None
             if frame is None or frame_default is None:
                 continue
+            frame = cv2.resize(frame, (300,300) )
+            frame_default = cv2.resize(frame_default, (300,300))
 
             self.manager["drawed_frame_buffer"] = cv2.imencode(".jpg", frame)[
                 1
