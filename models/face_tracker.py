@@ -24,8 +24,8 @@ STATUS_MAP = {
 
 class FaceTracker:
     def __init__(self):
-        # self.frame = Queue()
-        # self.frame_default = Queue()
+        self.frame = Queue()
+        self.frame_default = Queue()
         self.drawed_frame_buffer_queue = None
         self.default_frame_buffer_queue = None
         self.manager = Manager().dict()
@@ -330,7 +330,6 @@ class FaceTracker:
 
                 if curr['sent'] >= self.manager["max_time_check"]:
                     _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-                    # curr['sent'] = 0
 
 
             curr["last_check_time"] = time.time()
