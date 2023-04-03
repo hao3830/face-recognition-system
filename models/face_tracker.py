@@ -24,14 +24,14 @@ STATUS_MAP = {
 
 class FaceTracker:
     def __init__(self):
-        self.frame = Queue()
-        self.frame_default = Queue()
+        self.frame = Queue(maxsize=15)
+        self.frame_default = Queue(maxsize=15)
         self.drawed_frame_buffer_queue = None
         self.default_frame_buffer_queue = None
         self.manager = Manager().dict()
 
-        self.manager["drawed_frame_buffer"] = Queue(maxsize=15)
-        self.manager["default_frame_buffer"] = Queue(maxsize=15)
+        # self.frame = Queue(maxsize=15)
+        # self.frame_default = Queue(maxsize=15)
         self.manager["is_restart"] = False
         self.manager["det_conf"] = settings.det_conf
         self.manager["image_size"] = None
@@ -274,18 +274,18 @@ class FaceTracker:
             if frame is None or frame_default is None:
                 continue
 
-            self.manager["drawed_frame_buffer"].put(cv2.imencode(".jpg", frame)[
+            self.frame.put(cv2.imencode(".jpg", frame)[
                 1
             ].tobytes())
-            self.manager["default_frame_buffer"].put(cv2.imencode(".jpg", frame_default)[
+            self.frame_default.put(cv2.imencode(".jpg", frame_default)[
                 1
             ].tobytes())
 
     def get(self):
-        return self.manager["drawed_frame_buffer"].get()
+        return self.frame.get()
 
     def get_default(self):
-        return self.manager["default_frame_buffer"].get()
+        return self.frame_default.get()
 
     def send_reg_api(self, Q, data):
 
@@ -330,6 +330,7 @@ class FaceTracker:
 
                 if curr['sent'] >= self.manager["max_time_check"]:
                     _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+                    curr['sent'] = 0
 
 
             curr["last_check_time"] = time.time()
