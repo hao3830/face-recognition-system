@@ -2,9 +2,9 @@ check_freq: 0.2
 det_conf: 0.5
 max_time_check: 5
 roi:
-  h: 458
-  w: 458
+  h: 472
+  w: 482
   x: 11
-  y: 16
-size_face_h: 100
-size_face_w: 100
+  y: 12
+size_face_h: 25
+size_face_w: 25

@@ -50,9 +50,9 @@ class FaceQuality:
 
     def is_eyes_closed(self, landmarks):
         return (
-            self.eye_aspect_ratio(landmarks, self.left_eye)
-            + self.eye_aspect_ratio(landmarks, self.right_eye)
-        ) / 2 < self.close_eye_thres
+            self.eye_aspect_ratio(landmarks, self.left_eye) < self.close_eye_thres or
+             self.eye_aspect_ratio(landmarks, self.right_eye)< self.close_eye_thres)
+        # ) / 2 < self.close_eye_thres
 
     def is_face_tilt(self, face_landmarks, image):
         img_h, img_w, _ = image.shape
@@ -104,7 +104,9 @@ class FaceQuality:
         # Get the y rotation degree
         x = angles[0] * 360
         y = angles[1] * 360
-        return abs(x) > self.threshold_angle or abs(y) > self.threshold_angle
+        norm_x = min(abs(x), (abs(x) -360))
+        norm_y = min(abs(y), (abs(y) -360))
+        return norm_x > self.threshold_angle or norm_y > self.threshold_angle
 
     def is_smile(self, face_landmarks):
         nose_tip = face_landmarks.landmark[6]
@@ -135,10 +137,13 @@ class FaceQuality:
                 landmarks_positions[:, 0] *= image.shape[1]
                 landmarks_positions[:, 1] *= image.shape[0]
 
-                
+                # if not self.is_eyes_closed(landmarks_positions):
+                #     print('eye close')
+                # if not self.is_face_tilt(face_landmarks, image):
+                #     print('face_tilt')
                 if not (
                     self.is_eyes_closed(landmarks_positions)
-                    or self.is_face_tilt(face_landmarks, image)
+                    and self.is_face_tilt(face_landmarks, image)
                 ):
                    
                     return "good"

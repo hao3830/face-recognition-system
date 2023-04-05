@@ -24,8 +24,8 @@ STATUS_MAP = {
 
 class FaceTracker:
     def __init__(self):
-        self.frame = Queue(maxsize=5)
-        self.frame_default = Queue(maxsize=5)
+        # self.frame = Queue(maxsize=5)
+        # self.frame_default = Queue(maxsize=5)
         self.manager = Manager().dict()
 
         self.manager["drawed_frame_buffer"] = None
@@ -127,7 +127,6 @@ class FaceTracker:
                 alpha = 0.4
 
                 frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
-
                 for t in trackletsData:
                     roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
                     x1 = int(roi.topLeft().x)
@@ -135,12 +134,9 @@ class FaceTracker:
                     x2 = int(roi.bottomRight().x)
                     y2 = int(roi.bottomRight().y)
                     bbox = [x1, y1, x2, y2]
-
                     isContain = utils.ImageProcess.isContain(bbox, limit_roi)
                     # TODO: show result face detected but not comfortable
-                    if not self.check_face_size(bbox):
-                        continue
-
+                        
                     if (
                         str(t.id) in data
                         and data[str(t.id)]["face_quality_valid"] == False
@@ -151,6 +147,7 @@ class FaceTracker:
                         and not data[str(t.id)]["start_sent"]
                         and t.status == dai.Tracklet.TrackingStatus.TRACKED
                         and isContain == True
+                        and self.check_face_size(bbox)
                     ):
                         Q.put((default_frame, bbox, str(t.id)))
 
@@ -189,10 +186,10 @@ class FaceTracker:
                             box_color = utils.ImageProcess.light_grey
 
                         frame = utils.ImageProcess.draw_4_rounded_conner_bbox(
-                            frame, bbox, box_color, thickness=3
+                            frame, bbox, box_color, thickness=2
                         )
                         new_frame = utils.ImageProcess.draw_4_rounded_conner_bbox(
-                            new_frame, bbox, box_color, thickness=3
+                            new_frame, bbox, box_color, thickness=2
                         )
 
                     # Tracking save
@@ -281,18 +278,20 @@ class FaceTracker:
             self.manager["frame_default"] = None
             if frame is None or frame_default is None:
                 continue
-            # frame = cv2.resize(frame, (500,500) )
-            # frame_default = cv2.resize(frame_default, (500,500))
 
-            self.frame.put(cv2.imencode(".jpg", frame)[1].tobytes())
-            self.frame_default.put(cv2.imencode(".jpg", frame_default)[1].tobytes())
-            time.sleep(1/30)
+            # self.frame.put(cv2.imencode(".jpg", frame)[1].tobytes())
+            self.manager["drawed_frame_buffer"] = cv2.imencode(".jpg", frame)[1].tobytes()
+            # self.frame_default.put(cv2.imencode(".jpg", frame_default)[1].tobytes())
+            self.manager["default_frame_buffer"] = cv2.imencode(".jpg", frame_default)[1].tobytes()
+            # time.sleep(1/30)
 
     def get(self):
-        return self.frame.get()
+        # return self.frame.get()
+        return self.manager["drawed_frame_buffer"]
 
     def get_default(self):
-        return self.frame_default.get()
+        # return self.frame_default.get()
+        return self.manager["default_frame_buffer"]
 
     def send_reg_api(self, Q, data):
         send_api_counter = 0

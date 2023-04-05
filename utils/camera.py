@@ -1,5 +1,5 @@
 import asyncio
-async def gen_frame(video_controller,is_default):
+def gen_frame(video_controller,is_default):
      """Video streaming generator function."""
      while True:
         frame_def = video_controller.get_default()

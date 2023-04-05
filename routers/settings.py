@@ -80,7 +80,7 @@ def set_settings(roi: ROI, face_size: FaceSize, det_settings: DetectionSettings)
     data = utils.get_settings_config_without_parse_yaml()
     # size face settings
     data["size_face_w"] = face_size.w
-    data["size_face_w"] = face_size.h
+    data["size_face_h"] = face_size.h
 
     # Roi settings
     data["roi"]["x"] = roi.x

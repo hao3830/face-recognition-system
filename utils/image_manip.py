@@ -22,7 +22,15 @@ class ImageProcess:
         return False
 
     @staticmethod
-    def draw_4_rounded_conner_bbox(image, bbox, color, radius=30, thickness=2):
+    def getArea(bbox):
+        return (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
+
+    @staticmethod
+    def draw_4_rounded_conner_bbox(image, bbox, color, radius=20, thickness=1.5):
+        if ImageProcess.getArea(bbox) < 2000:
+            radius = 15
+        if ImageProcess.getArea(bbox) < 1000:
+            radius = 5
         x, y, x2, y2 = bbox
         w = x2 - x
         h = y2 - y
