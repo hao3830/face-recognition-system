@@ -10,6 +10,7 @@ class ImageProcess:
     green = (124, 252, 0)
     blue = (255, 0, 0)
     yellow = (255, 255, 0)
+
     def __init__(self) -> None:
         pass
 
@@ -88,3 +89,52 @@ class ImageProcess:
         open_cv_image = np.array(img)
         # Convert RGB to BGR
         return open_cv_image[:, :, ::-1].copy()
+
+    @staticmethod
+    def get_bbox_from_tracklet(t, frame):
+        roi = t.roi.denormalize(frame.shape[1], frame.shape[0])
+        x1 = int(roi.topLeft().x)
+        y1 = int(roi.topLeft().y)
+        x2 = int(roi.bottomRight().x)
+        y2 = int(roi.bottomRight().y)
+        return x1, y1, x2, y2
+
+    @staticmethod
+    def draw_track_status(status, id, frame, bbox):
+        x1, y1, _, _ = bbox
+        cv2.putText(
+            frame,
+            f"ID:{id}",
+            (x1 + 10, y1 + 35),
+            cv2.FONT_HERSHEY_TRIPLEX,
+            0.5,
+            ImageProcess.blue,
+        )
+        cv2.putText(
+            frame,
+            status,
+            (x1 + 10, y1 + 50),
+            cv2.FONT_HERSHEY_TRIPLEX,
+            0.5,
+            ImageProcess.blue,
+        )
+        return frame
+
+    @staticmethod
+    def draw_roi_area(frame, limit_roi):
+        overlay = frame.copy()
+
+        cv2.rectangle(
+            overlay,
+            (limit_roi[0], limit_roi[1]),
+            (limit_roi[2], limit_roi[3]),
+            (0, 200, 0),
+            -1,
+        )
+
+        alpha = 0.4
+
+        frame = cv2.addWeighted(overlay, alpha, frame, 1 - alpha, 0)
+
+        return frame
+    
