@@ -10,5 +10,5 @@ from utils.configs import (
 )
 from utils.camera import gen_frame, streamer
 from utils.logger import BiggerRotatingFileHandler
-from utils.api import get_token, good_bad_face, insert_face, search_face
+from utils.api import get_token, good_bad_face, insert_face, search_face, search_multiple_face, insert_multiple_face
 from utils.image_manip import ImageProcess

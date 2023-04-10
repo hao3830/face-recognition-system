@@ -54,6 +54,17 @@ def search_face(cropped_bytes, headers):
         logger.error(f"cannot sent search_face: {err}")
         return None
 
+def search_multiple_face(list_cropped_bytes, headers):
+    check_url = checkin_config.url + "/person/check_multiple_face"
+    list_cropped_bytes = [("files",cropped_bytes) for cropped_bytes in list_cropped_bytes]
+    try:
+        res = requests.post(
+            url=check_url, files=list_cropped_bytes, headers=headers
+        )
+        return res
+    except Exception as err:
+        logger.error(f"cannot sent search_face: {err}")
+        return None
 
 def insert_face(cropped_bytes, headers):
     insert_url = checkin_config.url + "/person/search_face"
@@ -66,3 +77,14 @@ def insert_face(cropped_bytes, headers):
         logger.error(f"cannot sent insert_face: {err}")
         return None
 
+def insert_multiple_face(list_cropped_bytes, headers):
+    insert_url = checkin_config.url + "/person/search_multiple_face"
+    list_cropped_bytes = [("files",cropped_bytes) for cropped_bytes in list_cropped_bytes]
+    try:
+        res = requests.post(
+            url=insert_url, files=list_cropped_bytes, headers=headers
+        )
+        return res
+    except Exception as err:
+        logger.error(f"cannot sent insert_face: {err}")
+        return None
