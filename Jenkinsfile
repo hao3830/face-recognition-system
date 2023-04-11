@@ -1,18 +1,29 @@
-/* groovylint-disable-next-line CompileStatic */
 pipeline {
-    agent any
-
-    stages {
+  agent any
+  stages {
+    stage('Build') {
+      parallel {
         stage('Build') {
-            steps {
-                echo 'Building..'
-                sh 'make build'
+          post {
+            success {
+              echo 'Build Success!'
             }
-            post {
-                success {
-                    echo 'Build Success!'
-                }
-            }
+
+          }
+          steps {
+            echo 'Building..'
+            sh 'make build'
+          }
         }
+
+        stage('Test') {
+          steps {
+            echo 'Testing branch'
+          }
+        }
+
+      }
     }
+
+  }
 }
