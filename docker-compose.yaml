@@ -1,0 +1,16 @@
+version: "3.9"
+services:
+  service:
+    build:
+      context: ./
+      dockerfile: Dockerfile
+    container_name: face_recognition_system
+    ports:
+      - 8000:8000
+    restart: unless-stopped
+    volumes:
+      - ./:/WORKDIR
+    devices:
+      - /dev/bus/usb:/dev/bus/usb
+    privileged: true
+
