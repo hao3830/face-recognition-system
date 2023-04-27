@@ -56,9 +56,10 @@ class FaceTracker:
 
     def run(self):
         try:
-            Q = Queue(maxsize=5)
+            Q = Queue(maxsize=2)
             data = Manager().dict()
             data["is_kill"] = False
+            data["sent_list"] = []
 
             p1 = Thread(target=self.send_reg_api, args=(Q, data))
             p1.start()
@@ -119,10 +120,9 @@ class FaceTracker:
 
                     x1, y1, x2, y2 = utils.ImageProcess.get_bbox_from_tracklet(t, frame)
                     bbox = [x1, y1, x2, y2]
-
+                    # print( data["sent_list"] )
                     if (
                         str(t.id) in data
-                        and data[str(t.id)]["face_quality_valid"] == False
                         and not data[str(t.id)]["face_quality_valid"]
                         and (time.time() - data[str(t.id)]["last_check_time"])
                         >= self.manager["check_freq"]
@@ -131,7 +131,12 @@ class FaceTracker:
                         and t.status == dai.Tracklet.TrackingStatus.TRACKED
                         and utils.ImageProcess.isContain(bbox, limit_roi)
                         and self.check_face_size(bbox)
+                        and (str(t.id) in  data["sent_list"] or (str(t.id) not in  data["sent_list"] and len(set(data["sent_list"] )) <= 1))
                     ):
+                        data["sent_list"].append(str(t.id))
+                        curr = data["sent_list"]
+                        curr.append(str(t.id))
+                        data["sent_list"] = curr
                         Q.put((default_frame, bbox, str(t.id)))
                      
                     if (
@@ -358,6 +363,16 @@ class FaceTracker:
                                 cropped_bytes=cropped_bytes, headers=headers
                             )
                             curr["sent"] = 0
+                            data_sent_list = data["sent_list"]
+                            while str(idx) in data["sent_list"]:
+                                remove_idx = data_sent_list.index(str(idx))
+                                data_sent_list.pop(remove_idx)
+                                data["sent_list"] = data_sent_list
+                        if str(idx) in data["sent_list"]:
+                            data_sent_list = data["sent_list"]
+                            remove_idx = data_sent_list.index(str(idx))
+                            data_sent_list.pop(remove_idx)
+                            data["sent_list"] = data_sent_list
 
                     elif (
                         respone["str_code"] == "Done"
@@ -366,6 +381,11 @@ class FaceTracker:
                     ):
                         _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
                         curr["face_quality_valid"] = True
+                        data_sent_list = data["sent_list"]
+                        while str(idx) in data["sent_list"]:
+                            remove_idx = data_sent_list.index(str(idx))
+                            data_sent_list.pop(remove_idx)
+                            data["sent_list"] = data_sent_list
 
                 curr["last_check_time"] = time.time()
                 curr["start_sent"] = False

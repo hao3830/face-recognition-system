@@ -36,7 +36,7 @@ def good_bad_face(cropped_image):
         res = res.json()
 
         if "predicts" in res:
-            return res["predicts"][0]
+            return res["predicts"][1]
 
         return None
     except Exception as err:
