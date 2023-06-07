@@ -261,136 +261,71 @@ class FaceTracker:
             # _ = Q.get()
             # continue
             # if len(data.keys()) - 1 >= 3:
-            if None:
-                idxes = []
-                list_cropped_bytes = []
-                while not Q.empty() and len(list_cropped_bytes) < batch_size:
-                    FRAME, BBOX, idx = Q.get()
-                    cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
-                    cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
-                    status = models.face_quality.run(cropped)
-                    if status != "bad":
-                        continue
 
-                    list_cropped_bytes.append(cropped_bytes)
-                    idxes.append(str(idx))
+            FRAME, BBOX, idx = Q.get()
+            cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
+            cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
+            status = models.face_quality.run(cropped)
+            if status == "bad":
+                continue
+            if str(idx) not in data:
+                continue
+            curr = data[str(idx)]
+            curr["start_sent"] = True
+            data[str(idx)] = {**curr}
 
-                    if str(idx) not in data:
-                        continue
-                    curr = data[str(idx)]
-                    curr["start_sent"] = True
+            logger.info("Sent Face Image")
+            headers = {"Authorization": f"Bearer {self.TOKEN}"}
+
+            if status != "bad":
+                if str(idx) in data:
                     data[str(idx)] = {**curr}
-
-                logger.info("Sent Face Image")
-                headers = {"Authorization": f"Bearer {self.TOKEN}"}
-
-                respone = utils.search_multiple_face(
-                    list_cropped_bytes=list_cropped_bytes, headers=headers
+                respone = utils.search_face(
+                    cropped_bytes=cropped_bytes, headers=headers
                 )
-                for idx in idxes:
-                    if idx not in data:
-                        continue
-                    curr = data[str(idx)]
-                    curr["sent"] += 1
-                    data[str(idx)] = {**curr}
-                respones = respone.json()
-                # print(respones)
-                if "list_respone" in respones:
-                    respones = respones["list_respone"]
-                for respone, idx in zip(respones, idxes):  
-                    if idx not in data:
-                        # curr = data:
-                        continue
-                    curr = data[idx]
-                    if respone["str_code"] == "NotFound":
-                        curr["face_quality_valid"] = False
-                        if (
-                            curr["sent"] >= self.manager["max_time_check"]
-                            and str(idx) in data
-                            and not data[str(idx)]["face_quality_valid"]
-                        ):
-                            _ = utils.insert_face(
-                                cropped_bytes=cropped_bytes, headers=headers
-                            )
-                            curr["sent"] = 0
+                curr["sent"] += 1
 
-                    elif (
-                        respone["str_code"] == "Done"
+                respone = respone.json()
+
+                if respone["str_code"] == "NotFound":
+                    curr["face_quality_valid"] = False
+                    if (
+                        curr["sent"] >= self.manager["max_time_check"]
                         and str(idx) in data
                         and not data[str(idx)]["face_quality_valid"]
                     ):
-                        _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-                        curr["face_quality_valid"] = True
-                    for idx in idxes:
-                        curr["last_check_time"] = time.time()
-                        curr["start_sent"] = False
-                        if str(idx) in data:
-                            data[str(idx)] = {**curr}
-            else:
-                FRAME, BBOX, idx = Q.get()
-                cropped = FRAME[BBOX[1] : BBOX[3], BBOX[0] : BBOX[2]]
-                cropped_bytes = cv2.imencode(".jpg", cropped)[1].tobytes()
-                status = models.face_quality.run(cropped)
-                if status == "bad":
-                    continue
-                if str(idx) not in data:
-                    continue
-                curr = data[str(idx)]
-                curr["start_sent"] = True
-                data[str(idx)] = {**curr}
-
-                logger.info("Sent Face Image")
-                headers = {"Authorization": f"Bearer {self.TOKEN}"}
-
-                if status != "bad":
-                    if str(idx) in data:
-                        data[str(idx)] = {**curr}
-                    respone = utils.search_face(
-                        cropped_bytes=cropped_bytes, headers=headers
-                    )
-                    curr["sent"] += 1
-
-                    respone = respone.json()
-
-                    if respone["str_code"] == "NotFound":
-                        curr["face_quality_valid"] = False
-                        if (
-                            curr["sent"] >= self.manager["max_time_check"]
-                            and str(idx) in data
-                            and not data[str(idx)]["face_quality_valid"]
-                        ):
-                            _ = utils.insert_face(
-                                cropped_bytes=cropped_bytes, headers=headers
-                            )
-                            curr["sent"] = 0
-                            data_sent_list = data["sent_list"]
-                            while str(idx) in data["sent_list"]:
-                                remove_idx = data_sent_list.index(str(idx))
-                                data_sent_list.pop(remove_idx)
-                                data["sent_list"] = data_sent_list
-                        if str(idx) in data["sent_list"]:
-                            data_sent_list = data["sent_list"]
-                            remove_idx = data_sent_list.index(str(idx))
-                            data_sent_list.pop(remove_idx)
-                            data["sent_list"] = data_sent_list
-
-                    elif (
-                        respone["str_code"] == "Done"
-                        and str(idx) in data
-                        and not data[str(idx)]["face_quality_valid"]
-                    ):
-                        _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
-                        curr["face_quality_valid"] = True
+                        _ = utils.insert_face(
+                            cropped_bytes=cropped_bytes, headers=headers
+                        )
+                        curr["sent"] = 0
                         data_sent_list = data["sent_list"]
                         while str(idx) in data["sent_list"]:
                             remove_idx = data_sent_list.index(str(idx))
                             data_sent_list.pop(remove_idx)
                             data["sent_list"] = data_sent_list
+                    if str(idx) in data["sent_list"]:
+                        data_sent_list = data["sent_list"]
+                        remove_idx = data_sent_list.index(str(idx))
+                        data_sent_list.pop(remove_idx)
+                        data["sent_list"] = data_sent_list
 
-                curr["last_check_time"] = time.time()
-                curr["start_sent"] = False
-                if str(idx) in data:
-                    data[str(idx)] = {**curr}
+                elif (
+                    respone["str_code"] == "Done"
+                    and str(idx) in data
+                    and not data[str(idx)]["face_quality_valid"]
+                ):
+                    _ = utils.insert_face(cropped_bytes=cropped_bytes, headers=headers)
+                    curr["face_quality_valid"] = True
+                    data_sent_list = data["sent_list"]
+                    while str(idx) in data["sent_list"]:
+                        remove_idx = data_sent_list.index(str(idx))
+                        data_sent_list.pop(remove_idx)
+                        data["sent_list"] = data_sent_list
+
+            curr["last_check_time"] = time.time()
+            curr["start_sent"] = False
+            if str(idx) in data:
+                data[str(idx)] = {**curr}
 
             if send_api_counter % 1000 == 0:
                 self.TOKEN = utils.get_token()
